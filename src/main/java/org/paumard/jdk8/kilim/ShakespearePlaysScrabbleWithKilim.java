@@ -63,11 +63,12 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     TreeMap<Integer, List<String>> treemap;
 
     interface Jmh {
-        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException;
+        public Object measureThroughput() throws InterruptedException;
     }
     public static abstract class Base extends ShakespearePlaysScrabbleWithKilim implements Jmh {
         void doMain() throws Exception {
             init();
+            setup();
             System.out.println(measureThroughput());
         }
     }
@@ -98,7 +99,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     public static class Threaded extends Base {
         SpmcArrayQueue<String> queue;
         @Benchmark
-        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+        public Object measureThroughput() throws InterruptedException {
             queue = new SpmcArrayQueue(size);
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
@@ -129,7 +130,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
     public static class Flat extends Base {
         @Benchmark
-        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+        public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
@@ -163,7 +164,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     
     public static class Conversant extends Base {
         @Benchmark
-        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+        public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
@@ -198,7 +199,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
     public static class Push extends Base {
         @Benchmark
-        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+        public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
@@ -233,7 +234,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     
     public static class Direct extends Base {
         @Benchmark
-        public List<Entry<Integer, List<String>>> measureThroughput() {
+        public Object measureThroughput() {
             for (String word : shakespeareWords) {
                 Integer num = getWord(word);
                 if (num != null)
@@ -248,7 +249,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             Scheduler.setDefaultScheduler(new ForkJoinScheduler(numPool));
         }
         @Benchmark
-        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+        public Object measureThroughput() throws InterruptedException {
             Worker [] actors = new Worker[numPool];
             int target = 0;
             for (int ii=0; ii < actors.length; ii++)
@@ -286,7 +287,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             Scheduler.setDefaultScheduler(new ForkJoinScheduler(numPool));
         }
         @Benchmark
-        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+        public Object measureThroughput() throws InterruptedException {
             Actors<ArrayList<Count>,String,Worker> actors
                     = new Actors(new Worker[numPool], Worker::new, size);
             for (String word : shakespeareWords)
@@ -407,8 +408,8 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
     }
     
-    List<Entry<Integer, List<String>>> getList() {
-        List<Entry<Integer, List<String>>> list = new ArrayList<Entry<Integer, List<String>>>();
+    Object getList() {
+        List<Entry<Integer, List<String>>> list = new ArrayList();
         int i = 4;
         for (Entry<Integer, List<String>> e : treemap.entrySet()) {
             if (--i == 0)
