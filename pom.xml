@@ -68,7 +68,6 @@
             <groupId>com.conversantmedia</groupId>
             <artifactId>disruptor</artifactId>
             <version>1.2.14</version>
-            <classifier>jdk10</classifier>
         </dependency>
 
     </dependencies>
