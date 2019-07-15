@@ -27,6 +27,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import kilim.ForkJoinScheduler;
 import kilim.Mailbox;
+import kilim.MailboxSPSC;
 import kilim.Pausable;
 import kilim.Scheduler;
 import kilim.Task;
@@ -221,11 +222,11 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
             for (String word : shakespeareWords) {
-                if (target==numPool) target = 0;
-                actors[target++].box.putb(word);
+                if (++target==numPool) target = 0;
+                while (!actors[target].box.putnb(word));
             }
             for (Worker actor : actors)
-                actor.box.putb(stop);
+                while (!actor.box.putnb(stop));
 
             for (Worker actor : actors)
                 for (Count count : actor.joinb().result)
@@ -234,7 +235,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
 
         class Worker extends Task<ArrayList<Count>> {
-            Mailbox<String> box = new Mailbox(size,size);
+            MailboxSPSC<String> box = new MailboxSPSC(size);
 
             public void execute() throws Pausable {
                 ArrayList<Count> list = new ArrayList<>();
@@ -278,25 +279,25 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             }
         }
         static class Actor<TT,UU> extends Task<TT> {
-            Mailbox<UU> box;
+            MailboxSPSC<UU> box;
         }
         static class Actors<TT,UU,AA extends Actor<TT,UU>> {
             AA [] actors;
             int target;
             void putb(UU value) {
-                if (target==actors.length) target = 0;
-                actors[target++].box.putb(value);
+                if (++target==actors.length) target = 0;
+                while (!actors[target].box.putnb(value));
             }
             void putbAll(UU value) {
                 for (Actor<TT,UU> actor : actors)
-                    actor.box.putb(value);
+                    while (!actor.box.putnb(value));
             }
 
             public Actors(AA [] actors,Supplier<AA> ctor,int size) {
                 this.actors = actors;
                 for (int ii=0; ii < actors.length; ii++) {
                     actors[ii] = ctor.get();
-                    actors[ii].box = size==0 ? new Mailbox() : new Mailbox(size,size);
+                    actors[ii].box = new MailboxSPSC(size);
                     actors[ii].start();
                 }
             }
