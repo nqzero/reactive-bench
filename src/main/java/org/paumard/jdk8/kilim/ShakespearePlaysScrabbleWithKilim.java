@@ -18,6 +18,7 @@
 package org.paumard.jdk8.kilim;
 
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
+import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 import java.util.*;
 import java.util.Map.Entry;
@@ -197,7 +198,41 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             }
         }
     }
-    
+
+    public static class Push extends Base {
+        @Benchmark
+        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+            Runner [] actors = new Runner[numPool];
+            for (int ii=0; ii < actors.length; ii++)
+                (actors[ii] = new Runner()).start();
+            int target = 0;
+            for (String word : shakespeareWords) {
+                if (++target==numPool) target = 0;
+                actors[target].queue.put(word);
+            }
+            for (int ii=0; ii < actors.length; ii++)
+                actors[ii].queue.put(stop);
+
+            for (Runner actor : actors) {
+                actor.join();
+                for (Count count : actor.list)
+                    addWord(count.num, count.word);
+            }
+            return getList();
+        }
+        class Runner extends Thread {
+            private PushPullBlockingQueue<String> queue =
+                    new PushPullBlockingQueue<>(size, SpinPolicy.SPINNING);
+            ArrayList<Count> list = new ArrayList<>();
+            public void run() {
+                for (String word; (word = queue.poll()) != stop;) {
+                    Integer num = getWord(word);
+                    if (num != null)
+                        list.add(new Count(num,word));
+                }
+            }
+        }
+    }
     
     public static class Direct extends Base {
         @Benchmark
