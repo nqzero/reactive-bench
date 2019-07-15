@@ -17,11 +17,18 @@
 
 package org.paumard.jdk8.kilim;
 
+import co.paralleluniverse.fibers.Fiber;
+import co.paralleluniverse.fibers.FiberUtil;
+import co.paralleluniverse.fibers.SuspendExecution;
+import co.paralleluniverse.strands.channels.Channel;
+import co.paralleluniverse.strands.channels.Channels;
+import co.paralleluniverse.strands.channels.Channels.OverflowPolicy;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import kilim.ForkJoinScheduler;
@@ -63,7 +70,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     TreeMap<Integer, List<String>> treemap;
 
     interface Jmh {
-        public Object measureThroughput() throws InterruptedException;
+        public Object measureThroughput() throws InterruptedException, ExecutionException;
     }
     public static abstract class Base extends ShakespearePlaysScrabbleWithKilim implements Jmh {
         void doMain() throws Exception {
@@ -241,6 +248,42 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                     addWord(num, word);
             }
             return getList();
+        }
+    }
+
+    public static class Quasar extends Base {
+        @Benchmark
+        public Object measureThroughput()
+                throws InterruptedException, ExecutionException {
+            Worker [] actors = new Worker[numPool];
+            int target = 0;
+            for (int ii=0; ii < actors.length; ii++)
+                (actors[ii] = new Worker()).start();
+            for (String word : shakespeareWords) {
+                if (++target==numPool) target = 0;
+                while (!actors[target].box.trySend(word));
+            }
+            for (Worker actor : actors)
+                while (!actor.box.trySend(stop));
+
+            for (Worker actor : actors)
+                for (Count count : FiberUtil.toFuture(actor).get())
+                    addWord(count.num, count.word);
+            return getList();
+        }
+
+        class Worker extends Fiber<ArrayList<Count>> {
+            Channel<String> box = Channels.newChannel(size,OverflowPolicy.BLOCK,true,true);
+
+            protected ArrayList<Count> run() throws SuspendExecution,InterruptedException {
+                ArrayList<Count> list = new ArrayList<>();
+                for (String word; (word = box.receive()) != stop;) {
+                    Integer num = getWord(word);
+                    if (num != null)
+                        list.add(new Count(num,word));
+                }
+                return list;
+            }
         }
     }
 
@@ -427,6 +470,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         new Kilim().doMain();
         new Movie().doMain();
         new Direct().doMain();
+        new Quasar().doMain();
     }
 
     static class MutableLong {
