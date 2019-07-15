@@ -61,6 +61,7 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlaysScrabble {
     static int numPool = Math.max(1, Scheduler.defaultNumberThreads-1);
     static int size = 1<<10;
+    TreeMap<Integer, List<String>> treemap;
 
     interface Jmh {
         public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException;
@@ -70,6 +71,11 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             init();
             System.out.println(measureThroughput());
         }
+    }
+
+    @Setup(Level.Invocation)
+    public void setup() {
+        treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
     }
 
     @TearDown(Level.Trial)
@@ -103,13 +109,12 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 while (! queue.offer(stop));
 
-            TreeMap<Integer, List<String>> treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
             for (Runner actor : actors) {
                 actor.join();
                 for (Count count : actor.list)
-                    addWord(count.num, count.word, treemap);
+                    addWord(count.num, count.word);
             }
-            return getList(treemap);
+            return getList();
         }
         class Runner extends Thread {
             ArrayList<Count> list = new ArrayList<>();
@@ -137,13 +142,12 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 while (! actors[ii].queue.offer(stop));
 
-            TreeMap<Integer, List<String>> treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
             for (Runner actor : actors) {
                 actor.join();
                 for (Count count : actor.list)
-                    addWord(count.num, count.word, treemap);
+                    addWord(count.num, count.word);
             }
-            return getList(treemap);
+            return getList();
         }
         class Runner extends Thread {
             SpscArrayQueue<String> queue = new SpscArrayQueue(size);
@@ -172,13 +176,12 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 actors[ii].queue.put(stop);
 
-            TreeMap<Integer, List<String>> treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
             for (Runner actor : actors) {
                 actor.join();
                 for (Count count : actor.list)
-                    addWord(count.num, count.word, treemap);
+                    addWord(count.num, count.word);
             }
-            return getList(treemap);
+            return getList();
         }
         class Runner extends Thread {
             private DisruptorBlockingQueue<String> queue =
@@ -198,13 +201,12 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     public static class Direct extends Base {
         @Benchmark
         public List<Entry<Integer, List<String>>> measureThroughput() {
-            TreeMap<Integer, List<String>> treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
             for (String word : shakespeareWords) {
                 Integer num = getWord(word);
                 if (num != null)
-                    addWord(num, word, treemap);
+                    addWord(num, word);
             }
-            return getList(treemap);
+            return getList();
         }
     }
 
@@ -225,11 +227,10 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (Worker actor : actors)
                 actor.box.putb(stop);
 
-            TreeMap<Integer, List<String>> treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
             for (Worker actor : actors)
                 for (Count count : actor.joinb().result)
-                    addWord(count.num, count.word, treemap);
-            return getList(treemap);
+                    addWord(count.num, count.word);
+            return getList();
         }
 
         class Worker extends Task<ArrayList<Count>> {
@@ -254,16 +255,15 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         @Benchmark
         public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
             Actors<ArrayList<Count>,String,Worker> actors
-                    = new Actors(new Worker[numPool], () -> new Worker(), size);
+                    = new Actors(new Worker[numPool], Worker::new, size);
             for (String word : shakespeareWords)
                 actors.putb(word);
             actors.putbAll(stop);
 
-            TreeMap<Integer, List<String>> treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
             for (Worker actor : actors.actors)
                 for (Count count : actor.joinb().result)
-                    addWord(count.num, count.word, treemap);
-            return getList(treemap);
+                    addWord(count.num, count.word);
+            return getList();
         }
 
         class Worker extends Actor<ArrayList<Count>,String> {
@@ -357,7 +357,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             }
             return null;
     }
-    void addWord(Integer sum2,String word,TreeMap<Integer, List<String>> treemap) {
+    void addWord(Integer sum2,String word) {
         {
             {
                 {
@@ -374,17 +374,15 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
     }
     
-    List<Entry<Integer, List<String>>> getList(TreeMap<Integer, List<String>> treemap) {
+    List<Entry<Integer, List<String>>> getList() {
         List<Entry<Integer, List<String>>> list = new ArrayList<Entry<Integer, List<String>>>();
-        
         int i = 4;
         for (Entry<Integer, List<String>> e : treemap.entrySet()) {
-            if (--i == 0) {
+            if (--i == 0)
                 break;
-            }
             list.add(e);
         }
-
+        treemap = null;
         return list;
     }
 
@@ -393,6 +391,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         new Flat().doMain();
         new Conversant().doMain();
         new Kilim().doMain();
+        new Movie().doMain();
         new Direct().doMain();
     }
 
