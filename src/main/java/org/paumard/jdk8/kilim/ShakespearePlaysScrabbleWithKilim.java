@@ -23,6 +23,8 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import kilim.ForkJoinScheduler;
 import kilim.Mailbox;
 import kilim.Pausable;
@@ -245,6 +247,62 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
     }
 
+    public static class Movie extends Base {
+        static {
+            Scheduler.setDefaultScheduler(new ForkJoinScheduler(numPool));
+        }
+        @Benchmark
+        public List<Entry<Integer, List<String>>> measureThroughput() throws InterruptedException {
+            Actors<ArrayList<Count>,String,Worker> actors
+                    = new Actors(new Worker[numPool], () -> new Worker(), size);
+            for (String word : shakespeareWords)
+                actors.putb(word);
+            actors.putbAll(stop);
+
+            TreeMap<Integer, List<String>> treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
+            for (Worker actor : actors.actors)
+                for (Count count : actor.joinb().result)
+                    addWord(count.num, count.word, treemap);
+            return getList(treemap);
+        }
+
+        class Worker extends Actor<ArrayList<Count>,String> {
+            public void execute() throws Pausable {
+                ArrayList<Count> list = new ArrayList<>();
+                for (String word; (word = box.get()) != stop;) {
+                    Integer num = getWord(word);
+                    if (num != null)
+                        list.add(new Count(num,word));
+                }
+                exit(list);
+            }
+        }
+        static class Actor<TT,UU> extends Task<TT> {
+            Mailbox<UU> box;
+        }
+        static class Actors<TT,UU,AA extends Actor<TT,UU>> {
+            AA [] actors;
+            int target;
+            void putb(UU value) {
+                if (target==actors.length) target = 0;
+                actors[target++].box.putb(value);
+            }
+            void putbAll(UU value) {
+                for (Actor<TT,UU> actor : actors)
+                    actor.box.putb(value);
+            }
+
+            public Actors(AA [] actors,Supplier<AA> ctor,int size) {
+                this.actors = actors;
+                for (int ii=0; ii < actors.length; ii++) {
+                    actors[ii] = ctor.get();
+                    actors[ii].box = size==0 ? new Mailbox() : new Mailbox(size,size);
+                    actors[ii].start();
+                }
+            }
+        }
+    }
+
     Integer getWord(String word) {
             if (scrabbleWords.contains(word)) {
                 HashMap<Integer, MutableLong> wordHistogram = new LinkedHashMap<>();
@@ -410,6 +468,7 @@ ShakespearePlaysScrabbleWithKilim.Direct.measureThroughput      avgt   60  6.453
 ShakespearePlaysScrabbleWithKilim.Flat.measureThroughput        avgt   60  4.320 ± 0.106  ms/op
 ShakespearePlaysScrabbleWithKilim.Kilim.measureThroughput       avgt   60  4.008 ± 0.029  ms/op
 ShakespearePlaysScrabbleWithKilim.Threaded.measureThroughput    avgt   60  4.636 ± 0.046  ms/op
+ShakespearePlaysScrabbleWithKilim.Movie.measureThroughput       avgt   60  4.047 ± 0.034  ms/op
 
 
 */
