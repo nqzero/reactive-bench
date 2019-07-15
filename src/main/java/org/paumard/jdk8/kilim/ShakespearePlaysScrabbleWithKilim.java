@@ -58,7 +58,7 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 @Warmup(iterations=12, time=1)
 @Measurement(iterations=12, time=1)
 public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlaysScrabble {
-    static int numPool = Math.max(1, Scheduler.defaultNumberThreads-1);
+    static int numPool = Math.max(1, Runtime.getRuntime().availableProcessors()-1);
     static int size = 1<<10;
     TreeMap<Integer, List<String>> treemap;
 
