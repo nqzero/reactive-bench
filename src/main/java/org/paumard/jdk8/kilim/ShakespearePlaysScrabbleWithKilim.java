@@ -260,6 +260,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             int target = 0;
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
+            // spinlock is faster than blocking send
             for (String word : shakespeareWords) {
                 if (++target==numPool) target = 0;
                 while (!actors[target].box.trySend(word));
@@ -275,6 +276,42 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
         class Worker extends Fiber<Void> {
             Channel<String> box = Channels.newChannel(size,OverflowPolicy.BLOCK,true,true);
+
+            protected Void run() throws SuspendExecution,InterruptedException {
+                for (String word; (word = box.receive()) != stop;) {
+                    Integer num = getWord(word);
+                    if (num != null)
+                        addWord(num,word);
+                }
+                return null;
+            }
+        }
+    }
+
+    public static class QuasarFair extends Base {
+        Channel<String> box;
+        @Benchmark
+        public Object measureThroughput() throws InterruptedException {
+            box = Channels.newChannel(size,OverflowPolicy.BLOCK,true,false);
+            Worker [] actors = new Worker[numPool];
+            int target = 0;
+            for (int ii=0; ii < actors.length; ii++)
+                (actors[ii] = new Worker()).start();
+            for (String word : shakespeareWords) {
+                if (++target==numPool) target = 0;
+                while (!box.trySend(word));
+            }
+            for (Worker actor : actors)
+                while (!box.trySend(stop));
+
+            for (Worker actor : actors)
+                try { actor.joinNoSuspend(); }
+                catch (ExecutionException ex) { throw new RuntimeException(ex); }
+            box = null;
+            return getList();
+        }
+
+        class Worker extends Fiber<Void> {
 
             protected Void run() throws SuspendExecution,InterruptedException {
                 for (String word; (word = box.receive()) != stop;) {
