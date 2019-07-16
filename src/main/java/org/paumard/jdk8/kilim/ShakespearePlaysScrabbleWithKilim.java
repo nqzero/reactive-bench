@@ -18,7 +18,6 @@
 package org.paumard.jdk8.kilim;
 
 import co.paralleluniverse.fibers.Fiber;
-import co.paralleluniverse.fibers.FiberUtil;
 import co.paralleluniverse.fibers.SuspendExecution;
 import co.paralleluniverse.strands.channels.Channel;
 import co.paralleluniverse.strands.channels.Channels;
@@ -32,10 +31,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import kilim.ForkJoinScheduler;
+import kilim.Mailbox;
 import kilim.MailboxSPSC;
 import kilim.Pausable;
 import kilim.Scheduler;
 import kilim.Task;
+import org.jctools.queues.MpscArrayQueue;
 import org.jctools.queues.SpmcArrayQueue;
 import org.jctools.queues.SpscArrayQueue;
 
@@ -67,10 +68,25 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlaysScrabble {
     static int numPool = Math.max(1, Runtime.getRuntime().availableProcessors()-1);
     static int size = 1<<10;
+    static int delay;
+    static boolean fast;
     TreeMap<Integer, List<String>> treemap;
+    int smallest;
+    int numSave = 3;
+    Count lastCount = new Count(0, null);
+
+    static {
+        try { delay = Integer.parseInt(System.getProperty("d")); }
+        catch (Exception ex) { delay = 12000; }
+        try { numPool = Integer.parseInt(System.getProperty("np")); }
+        catch (Exception ex) {}
+        try { size = 1<<Integer.parseInt(System.getProperty("size")); }
+        catch (Exception ex) {}
+        fast = System.getProperty("fast") != null;
+    }
 
     interface Jmh {
-        public Object measureThroughput() throws InterruptedException, ExecutionException;
+        public Object measureThroughput() throws InterruptedException;
     }
     public static abstract class Base extends ShakespearePlaysScrabbleWithKilim implements Jmh {
         void doMain() throws Exception {
@@ -87,7 +103,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
     @TearDown(Level.Trial)
     public void doSetup() {
-        try { Thread.sleep(12000); }
+        try { Thread.sleep(delay); }
         catch (InterruptedException ex) {}
     }
 
@@ -103,7 +119,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     }
     String stop = new String();
 
-    public static class Threaded extends Base {
+    public static class JctoolsFair extends Base {
         SpmcArrayQueue<String> queue;
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
@@ -116,26 +132,23 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 while (! queue.offer(stop));
 
-            for (Runner actor : actors) {
+            for (Runner actor : actors)
                 actor.join();
-                for (Count count : actor.list)
-                    addWord(count.num, count.word);
-            }
+            queue = null;
             return getList();
         }
         class Runner extends Thread {
-            ArrayList<Count> list = new ArrayList<>();
             public void run() {
                 for (String word; (word = queue.poll()) != stop;) {
                     Integer num = getWord(word);
                     if (num != null)
-                        list.add(new Count(num,word));
+                        addWord(num,word);
                 }
             }
         }
     }
 
-    public static class Flat extends Base {
+    public static class Jctools extends Base {
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
@@ -149,26 +162,22 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 while (! actors[ii].queue.offer(stop));
 
-            for (Runner actor : actors) {
+            for (Runner actor : actors)
                 actor.join();
-                for (Count count : actor.list)
-                    addWord(count.num, count.word);
-            }
             return getList();
         }
         class Runner extends Thread {
             SpscArrayQueue<String> queue = new SpscArrayQueue(size);
-            ArrayList<Count> list = new ArrayList<>();
             public void run() {
                 for (String word; (word = queue.poll()) != stop;) {
                     Integer num = getWord(word);
                     if (num != null)
-                        list.add(new Count(num,word));
+                        addWord(num,word);
                 }
             }
         }
     }
-    
+
     public static class Conversant extends Base {
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
@@ -183,22 +192,18 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 actors[ii].queue.put(stop);
 
-            for (Runner actor : actors) {
+            for (Runner actor : actors)
                 actor.join();
-                for (Count count : actor.list)
-                    addWord(count.num, count.word);
-            }
             return getList();
         }
         class Runner extends Thread {
             private DisruptorBlockingQueue<String> queue =
                     new DisruptorBlockingQueue<>(size, SpinPolicy.SPINNING);
-            ArrayList<Count> list = new ArrayList<>();
             public void run() {
                 for (String word; (word = queue.poll()) != stop;) {
                     Integer num = getWord(word);
                     if (num != null)
-                        list.add(new Count(num,word));
+                        addWord(num,word);
                 }
             }
         }
@@ -218,11 +223,8 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 actors[ii].queue.put(stop);
 
-            for (Runner actor : actors) {
+            for (Runner actor : actors)
                 actor.join();
-                for (Count count : actor.list)
-                    addWord(count.num, count.word);
-            }
             return getList();
         }
         class Runner extends Thread {
@@ -233,7 +235,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 for (String word; (word = queue.poll()) != stop;) {
                     Integer num = getWord(word);
                     if (num != null)
-                        list.add(new Count(num,word));
+                        addWord(num,word);
                 }
             }
         }
@@ -253,8 +255,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
     public static class Quasar extends Base {
         @Benchmark
-        public Object measureThroughput()
-                throws InterruptedException, ExecutionException {
+        public Object measureThroughput() throws InterruptedException {
             Worker [] actors = new Worker[numPool];
             int target = 0;
             for (int ii=0; ii < actors.length; ii++)
@@ -267,22 +268,21 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 while (!actor.box.trySend(stop));
 
             for (Worker actor : actors)
-                for (Count count : FiberUtil.toFuture(actor).get())
-                    addWord(count.num, count.word);
+                try { actor.joinNoSuspend(); }
+                catch (ExecutionException ex) { throw new RuntimeException(ex); }
             return getList();
         }
 
-        class Worker extends Fiber<ArrayList<Count>> {
+        class Worker extends Fiber<Void> {
             Channel<String> box = Channels.newChannel(size,OverflowPolicy.BLOCK,true,true);
 
-            protected ArrayList<Count> run() throws SuspendExecution,InterruptedException {
-                ArrayList<Count> list = new ArrayList<>();
+            protected Void run() throws SuspendExecution,InterruptedException {
                 for (String word; (word = box.receive()) != stop;) {
                     Integer num = getWord(word);
                     if (num != null)
-                        list.add(new Count(num,word));
+                        addWord(num,word);
                 }
-                return list;
+                return null;
             }
         }
     }
@@ -305,22 +305,19 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 while (!actor.box.putnb(stop));
 
             for (Worker actor : actors)
-                for (Count count : actor.joinb().result)
-                    addWord(count.num, count.word);
+                actor.joinb();
             return getList();
         }
 
-        class Worker extends Task<ArrayList<Count>> {
+        class Worker extends Task<Void> {
             MailboxSPSC<String> box = new MailboxSPSC(size);
 
             public void execute() throws Pausable {
-                ArrayList<Count> list = new ArrayList<>();
                 for (String word; (word = box.get()) != stop;) {
                     Integer num = getWord(word);
                     if (num != null)
-                        list.add(new Count(num,word));
+                        addWord(num,word);
                 }
-                exit(list);
             }
         }
     }
@@ -331,27 +328,23 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            Actors<ArrayList<Count>,String,Worker> actors
+            Actors<Void,String,Worker> actors
                     = new Actors(new Worker[numPool], Worker::new, size);
             for (String word : shakespeareWords)
                 actors.putb(word);
             actors.putbAll(stop);
-
             for (Worker actor : actors.actors)
-                for (Count count : actor.joinb().result)
-                    addWord(count.num, count.word);
+                actor.joinb();
             return getList();
         }
 
-        class Worker extends Actor<ArrayList<Count>,String> {
+        class Worker extends Actor<Void,String> {
             public void execute() throws Pausable {
-                ArrayList<Count> list = new ArrayList<>();
                 for (String word; (word = box.get()) != stop;) {
                     Integer num = getWord(word);
                     if (num != null)
-                        list.add(new Count(num,word));
+                        addWord(num,word);
                 }
-                exit(list);
             }
         }
         static class Actor<TT,UU> extends Task<TT> {
@@ -434,18 +427,22 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             }
             return null;
     }
-    void addWord(Integer sum2,String word) {
+    synchronized void addWord(Integer sum2,String word) {
         {
             {
                 {
                     Integer key = sum2;
+                    boolean big = fast && treemap.size() >= numSave;
+                    if (big && key < treemap.lastKey()) return;
 
                     List<String> list = treemap.get(key) ;
                     if (list == null) {
                         list = new ArrayList<>() ;
+                        if (big)
+                            treemap.pollLastEntry();
                         treemap.put(key, list) ;
                     }
-                    list.add(word) ;
+                    list.add(word);
                 }
             }
         }
@@ -464,9 +461,10 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     }
 
     public static void main(String[] args) throws Exception {
-        new Threaded().doMain();
-        new Flat().doMain();
+        new Jctools().doMain();
+        new JctoolsFair().doMain();
         new Conversant().doMain();
+        new Push().doMain();
         new Kilim().doMain();
         new Movie().doMain();
         new Direct().doMain();
