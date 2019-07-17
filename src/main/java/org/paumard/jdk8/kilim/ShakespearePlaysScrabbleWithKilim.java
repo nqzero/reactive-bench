@@ -25,6 +25,8 @@ import co.paralleluniverse.strands.channels.Channels.OverflowPolicy;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
@@ -70,6 +72,8 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     static int size = 1<<10;
     static int delay;
     static boolean fast;
+    static String suffix;
+    static int numHash = 100;
     TreeMap<Integer, List<String>> treemap;
     int smallest;
     int numSave = 3;
@@ -83,6 +87,31 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         try { size = 1<<Integer.parseInt(System.getProperty("size")); }
         catch (Exception ex) {}
         fast = System.getProperty("fast") != null;
+        suffix = System.getProperty("suffix");
+        try { numHash = Integer.parseInt(System.getProperty("nh")); }
+        catch (Exception ex) {}
+    }
+    static ThreadLocal<MessageDigest> digest = new ThreadLocal();
+    static MessageDigest digest() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+    int hash(String word) {
+        int score = 0;
+        if (numHash > 0 && suffix != null && word.endsWith(suffix)) {
+            MessageDigest digest2 = digest.get();
+            if (digest2==null)
+                digest.set(digest2 = digest());
+            for (int ii=0; ii < numHash; ii++) {
+                byte[] hash = digest2.digest(word.getBytes(StandardCharsets.UTF_8));
+                score += hash[0] < 32 ? 1:0;
+                word += "a";
+            }
+        }
+        return score;
     }
 
     interface Jmh {
@@ -412,6 +441,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
     Integer getWord(String word) {
             if (scrabbleWords.contains(word)) {
+                int hash = hash(word);
                 HashMap<Integer, MutableLong> wordHistogram = new LinkedHashMap<>();
                 for (int i = 0; i < word.length(); i++) {
                     MutableLong newValue = wordHistogram.get((int)word.charAt(i)) ;
@@ -459,7 +489,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                     
                     sum2 += max2;
                     sum2 = 2 * sum2 + (word.length() == 7 ? 50 : 0);
-                    return sum2;
+                    return sum2 + hash;
                 }
             }
             return null;
