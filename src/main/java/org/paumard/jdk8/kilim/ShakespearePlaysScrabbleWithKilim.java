@@ -31,6 +31,7 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import kilim.ForkJoinScheduler;
 import kilim.Mailbox;
@@ -394,47 +395,61 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            Actors<Void,String,Worker> actors
-                    = new Actors(new Worker[numPool], Worker::new, size);
+            Actors<String> actors = new Actors<String>(0, size, word -> {
+                Integer num = getWord(word);
+                if (num != null)
+                    addWord(num,word);
+            });
             for (String word : shakespeareWords)
                 actors.putb(word);
-            actors.putbAll(stop);
-            for (Worker actor : actors.actors)
-                actor.joinb();
+            actors.joinb();
             return getList();
         }
 
-        class Worker extends Actor<Void,String> {
-            public void execute() throws Pausable {
-                for (String word; (word = box.get()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
-            }
-        }
-        static class Actor<TT,UU> extends Task<TT> {
-            MailboxSPSC<UU> box;
-        }
-        static class Actors<TT,UU,AA extends Actor<TT,UU>> {
-            AA [] actors;
+        static class Actors<UU> {
+            Actor [] actors;
+            Consumer<UU> action;
             int target;
+            Object stop2 = new Object();
             void putb(UU value) {
                 if (++target==actors.length) target = 0;
                 while (!actors[target].box.putnb(value));
             }
-            void putbAll(UU value) {
-                for (Actor<TT,UU> actor : actors)
-                    while (!actor.box.putnb(value));
+            void putFair(UU value) {
+                while (true) {
+                    if (++target==actors.length) target = 0;
+                    if (actors[target].box.putnb(value)) return;
+                }
+            }
+            void joinb() {
+                for (Actor actor : actors)
+                    while (!((Actor) actor).box.putnb(stop2));
+                for (Actor actor : actors)
+                    actor.joinb();
             }
 
-            public Actors(AA [] actors,Supplier<AA> ctor,int size) {
-                this.actors = actors;
+            public Actors(Consumer<UU> action) {
+                this(0,1<<4,action);
+            }
+            public Actors(int num,int size,Consumer<UU> action) {
+                this.action = action;
+                if (num <= 0)
+                    num = Math.max(1,Scheduler.defaultScheduler.numThreads()+num);
+                actors = new Actor[num];
                 for (int ii=0; ii < actors.length; ii++) {
-                    actors[ii] = ctor.get();
+                    actors[ii] = new Actor();
                     actors[ii].box = new MailboxSPSC(size);
+                    actors[ii].ctrl = this;
                     actors[ii].start();
                 }
+            }
+        }
+        static class Actor<UU> extends Task<Void> {
+            MailboxSPSC<UU> box;
+            Actors ctrl;
+            public void execute() throws Pausable {
+                for (UU word; (word = box.get()) != ctrl.stop2;)
+                    ctrl.action.accept(word);
             }
         }
     }
