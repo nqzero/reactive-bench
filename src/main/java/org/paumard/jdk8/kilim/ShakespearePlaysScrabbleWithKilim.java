@@ -227,7 +227,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
         class Runner extends Thread {
             private DisruptorBlockingQueue<String> queue =
-                    new DisruptorBlockingQueue<>(size, SpinPolicy.SPINNING);
+                    new DisruptorBlockingQueue<>(size, SpinPolicy.WAITING);
             public void run() {
                 for (String word; (word = queue.poll()) != stop;) {
                     Integer num = getWord(word);
@@ -258,7 +258,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
         class Runner extends Thread {
             private PushPullBlockingQueue<String> queue =
-                    new PushPullBlockingQueue<>(size, SpinPolicy.SPINNING);
+                    new PushPullBlockingQueue<>(size, SpinPolicy.WAITING);
             ArrayList<Count> list = new ArrayList<>();
             public void run() {
                 for (String word; (word = queue.poll()) != stop;) {
@@ -323,16 +323,16 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         public Object measureThroughput() throws InterruptedException {
             box = Channels.newChannel(size,OverflowPolicy.BLOCK,true,false);
             Worker [] actors = new Worker[numPool];
-            int target = 0;
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
-            for (String word : shakespeareWords) {
-                if (++target==numPool) target = 0;
-                while (!box.trySend(word));
+            try {
+                for (String word : shakespeareWords)
+                    box.send(word);
+                for (Worker actor : actors)
+                    box.send(stop);
+            } catch (SuspendExecution ex) {
+                throw new RuntimeException(ex);
             }
-            for (Worker actor : actors)
-                while (!box.trySend(stop));
-
             for (Worker actor : actors)
                 try { actor.joinNoSuspend(); }
                 catch (ExecutionException ex) { throw new RuntimeException(ex); }
