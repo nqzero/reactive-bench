@@ -420,19 +420,33 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            Actors<String> actors = new Actors<String>(numProc, size, word -> {
+            cast(shakespeareWords,word -> {
                 Integer num = getWord(word);
                 if (num != null)
                     addWord(num,word);
             });
-            Task.fork(() -> {
-                for (String word : shakespeareWords)
-                    actors.put(word);
-                actors.join();
-            }).joinb();
             return getList();
         }
 
+        static <UU> void cast(Iterator<UU> iter,Consumer<UU> action) {
+            Actors<UU> actors = new Actors(action);
+            Task.fork(() -> {
+                while (iter.hasNext())
+                    actors.put(iter.next());
+                actors.join();
+            }).joinb();
+        }
+        static <UU> void cast(Iterable<UU> able,Consumer<UU> action) {
+            // fixme - constants are used here only for benchmarking
+            //         api may need to expose those arguments or just use sane defaults
+            Actors<UU> actors = new Actors(numProc,size,action);
+            Task.fork(() -> {
+                for (UU val : able)
+                    actors.put(val);
+                actors.join();
+            }).joinb();
+        }
+        
         static class Actors<UU> {
             Actor [] actors;
             Consumer<UU> action;
