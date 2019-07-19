@@ -287,25 +287,28 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Worker [] actors = new Worker[numPool];
-            int target = 0;
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
-            // spinlock is faster than blocking send
-            for (String word : shakespeareWords) {
-                if (++target==numPool) target = 0;
-                while (!actors[target].box.trySend(word));
+            try {
+                new Fiber<Void>(() -> {
+                    int target = 0;
+                    for (String word : shakespeareWords) {
+                        if (++target==actors.length) target = 0;
+                        actors[target].box.send(word);
+                    }
+                    for (Worker actor : actors)
+                        actor.box.send(stop);
+                }).start().joinNoSuspend();
+                for (Worker actor : actors)
+                    actor.joinNoSuspend();
             }
-            for (Worker actor : actors)
-                while (!actor.box.trySend(stop));
+            catch (ExecutionException ex) {}
 
-            for (Worker actor : actors)
-                try { actor.joinNoSuspend(); }
-                catch (ExecutionException ex) { throw new RuntimeException(ex); }
             return getList();
         }
 
         class Worker extends Fiber<Void> {
-            Channel<String> box = Channels.newChannel(size,OverflowPolicy.BLOCK,true,true);
+            Channel<String> box = Channels.newChannel(size,OverflowPolicy.BACKOFF,true,true);
 
             protected Void run() throws SuspendExecution,InterruptedException {
                 for (String word; (word = box.receive()) != stop;) {
@@ -322,21 +325,22 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         Channel<String> box;
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            box = Channels.newChannel(size,OverflowPolicy.BLOCK,true,false);
+            box = Channels.newChannel(size,OverflowPolicy.BACKOFF,true,false);
             Worker [] actors = new Worker[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
             try {
-                for (String word : shakespeareWords)
-                    box.send(word);
+                new Fiber<Void>(() -> {
+                    for (String word : shakespeareWords)
+                        box.send(word);
+                    for (Worker actor : actors)
+                        box.send(stop);
+                }).start().joinNoSuspend();
                 for (Worker actor : actors)
-                    box.send(stop);
-            } catch (SuspendExecution ex) {
-                throw new RuntimeException(ex);
+                    actor.joinNoSuspend();
             }
-            for (Worker actor : actors)
-                try { actor.joinNoSuspend(); }
-                catch (ExecutionException ex) { throw new RuntimeException(ex); }
+            catch (ExecutionException ex) {}
+
             box = null;
             return getList();
         }
@@ -356,20 +360,22 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
     public static class Kilim extends Base {
         static {
-            Scheduler.setDefaultScheduler(new ForkJoinScheduler(numPool));
+            Scheduler.setDefaultScheduler(new ForkJoinScheduler(-1));
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Worker [] actors = new Worker[numPool];
-            int target = 0;
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
-            for (String word : shakespeareWords) {
-                if (++target==numPool) target = 0;
-                while (!actors[target].box.putnb(word));
-            }
-            for (Worker actor : actors)
-                while (!actor.box.putnb(stop));
+            Task.fork(() -> {
+                int target = 0;
+                for (String word : shakespeareWords) {
+                    if (++target==actors.length) target = 0;
+                    actors[target].box.put(word);
+                }
+                for (Worker actor : actors)
+                    actor.box.put(stop);
+            }).joinb();
 
             for (Worker actor : actors)
                 actor.joinb();
@@ -391,7 +397,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
 
     public static class Movie extends Base {
         static {
-            Scheduler.setDefaultScheduler(new ForkJoinScheduler(numPool));
+            Scheduler.setDefaultScheduler(new ForkJoinScheduler(-1));
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
@@ -400,9 +406,11 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 if (num != null)
                     addWord(num,word);
             });
-            for (String word : shakespeareWords)
-                actors.putb(word);
-            actors.joinb();
+            Task.fork(() -> {
+                for (String word : shakespeareWords)
+                    actors.put(word);
+                actors.join();
+            }).joinb();
             return getList();
         }
 
@@ -411,25 +419,27 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             Consumer<UU> action;
             int target;
             Object stop2 = new Object();
-            void putb(UU value) {
+            int inc() {
                 if (++target==actors.length) target = 0;
-                while (!actors[target].box.putnb(value));
+                return target;
             }
-            void putFair(UU value) {
-                while (true) {
-                    if (++target==actors.length) target = 0;
-                    if (actors[target].box.putnb(value)) return;
-                }
+            void place(UU value) throws Pausable {
+                actors[inc()].box.put(value);
             }
-            void joinb() {
+            void put(UU value) throws Pausable {
+                for (int ii=0; ii < actors.length; ii++)
+                    if (actors[inc()].box.putnb(value)) return;
+                place(value);
+            }
+            void join() throws Pausable {
                 for (Actor actor : actors)
-                    while (!((Actor) actor).box.putnb(stop2));
+                    actor.box.put(stop2);
                 for (Actor actor : actors)
-                    actor.joinb();
+                    actor.join();
             }
 
             public Actors(Consumer<UU> action) {
-                this(0,1<<4,action);
+                this(0,1<<6,action);
             }
             public Actors(int num,int size,Consumer<UU> action) {
                 this.action = action;
