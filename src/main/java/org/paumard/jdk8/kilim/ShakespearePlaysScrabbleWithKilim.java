@@ -36,12 +36,10 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import kilim.ForkJoinScheduler;
-import kilim.Mailbox;
 import kilim.MailboxSPSC;
 import kilim.Pausable;
 import kilim.Scheduler;
 import kilim.Task;
-import org.jctools.queues.MpscArrayQueue;
 import org.jctools.queues.SpmcArrayQueue;
 import org.jctools.queues.SpscArrayQueue;
 
