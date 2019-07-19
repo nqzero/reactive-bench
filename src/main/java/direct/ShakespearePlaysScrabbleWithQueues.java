@@ -15,7 +15,7 @@
  *
  */
 
-package org.paumard.jdk8.kilim;
+package direct;
 
 import co.paralleluniverse.fibers.Fiber;
 import co.paralleluniverse.fibers.SuspendExecution;
@@ -65,7 +65,7 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Warmup(iterations=12, time=1)
 @Measurement(iterations=12, time=1)
-public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlaysScrabble {
+public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlaysScrabble {
     static int numProc = Runtime.getRuntime().availableProcessors();
     static int size = 1<<10;
     static int delay;
@@ -116,7 +116,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     interface Jmh {
         public Object measureThroughput() throws InterruptedException;
     }
-    public static abstract class Base extends ShakespearePlaysScrabbleWithKilim implements Jmh {
+    public static abstract class Base extends ShakespearePlaysScrabbleWithQueues implements Jmh {
         void doMain() throws Exception {
             init();
             setup();
