@@ -33,6 +33,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 import kilim.ForkJoinScheduler;
 import kilim.Mailbox;
 import kilim.MailboxSPSC;
@@ -277,6 +279,28 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                     addWord(num, word);
             }
             return getList();
+        }
+    }
+
+    public static class Stream8 extends Base {
+        @Benchmark
+        public Object measureThroughput() {
+            // force the words to be processed linearly
+            //   ie, to simulate backpressure
+            // fixme - are any characteristics useful here ?
+            Stream<String> unsplittable =
+                StreamSupport.stream(Spliterators.spliteratorUnknownSize(new Source(),0),true);
+            unsplittable.forEach(word -> {
+                Integer num = getWord(word);
+                if (num!=null)
+                    addWord(num,word);
+            });
+            return getList();
+        }
+        class Source implements Iterator<String> {
+            Iterator<String> iter = shakespeareWords.iterator();
+            public boolean hasNext() { return iter.hasNext(); }
+            public String next() { return iter.next(); }
         }
     }
 
@@ -557,6 +581,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         new Kilim().doMain();
         new Movie().doMain();
         new Direct().doMain();
+        new Stream8().doMain();
         new Quasar().doMain();
     }
 
