@@ -69,7 +69,7 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 @Warmup(iterations=12, time=1)
 @Measurement(iterations=12, time=1)
 public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlaysScrabble {
-    static int numPool = Math.max(1, Runtime.getRuntime().availableProcessors()-1);
+    static int numProc = Runtime.getRuntime().availableProcessors();
     static int size = 1<<10;
     static int delay;
     static boolean fast;
@@ -83,7 +83,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     static {
         try { delay = Integer.parseInt(System.getProperty("d")); }
         catch (Exception ex) { delay = 12000; }
-        try { numPool = Integer.parseInt(System.getProperty("np")); }
+        try { numProc = Integer.parseInt(System.getProperty("np")); }
         catch (Exception ex) {}
         try { size = 1<<Integer.parseInt(System.getProperty("size")); }
         catch (Exception ex) {}
@@ -92,6 +92,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         try { numHash = Integer.parseInt(System.getProperty("nh")); }
         catch (Exception ex) {}
     }
+    static int numPool = Math.max(1,numProc-1);
     static ThreadLocal<MessageDigest> digest = new ThreadLocal();
     static MessageDigest digest() {
         try {
@@ -186,7 +187,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 (actors[ii] = new Runner()).start();
             int target = 0;
             for (String word : shakespeareWords) {
-                if (++target==numPool) target = 0;
+                if (++target==actors.length) target = 0;
                 while (!actors[target].queue.offer(word));
             }
             for (int ii=0; ii < actors.length; ii++)
@@ -216,7 +217,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 (actors[ii] = new Runner()).start();
             int target = 0;
             for (String word : shakespeareWords) {
-                if (++target==numPool) target = 0;
+                if (++target==actors.length) target = 0;
                 actors[target].queue.put(word);
             }
             for (int ii=0; ii < actors.length; ii++)
@@ -247,7 +248,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 (actors[ii] = new Runner()).start();
             int target = 0;
             for (String word : shakespeareWords) {
-                if (++target==numPool) target = 0;
+                if (++target==actors.length) target = 0;
                 actors[target].queue.put(word);
             }
             for (int ii=0; ii < actors.length; ii++)
@@ -286,7 +287,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     public static class Quasar extends Base {
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            Worker [] actors = new Worker[numPool];
+            Worker [] actors = new Worker[numProc];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
             try {
@@ -326,7 +327,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
             box = Channels.newChannel(size,OverflowPolicy.BACKOFF,true,false);
-            Worker [] actors = new Worker[numPool];
+            Worker [] actors = new Worker[numProc];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
             try {
@@ -364,7 +365,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            Worker [] actors = new Worker[numPool];
+            Worker [] actors = new Worker[numProc];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
             Task.fork(() -> {
@@ -401,7 +402,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            Actors<String> actors = new Actors<String>(0, size, word -> {
+            Actors<String> actors = new Actors<String>(numProc, size, word -> {
                 Integer num = getWord(word);
                 if (num != null)
                     addWord(num,word);
