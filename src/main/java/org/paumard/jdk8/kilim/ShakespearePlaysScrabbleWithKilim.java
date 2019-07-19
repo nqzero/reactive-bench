@@ -448,6 +448,9 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             void put(UU value) throws Pausable {
                 for (int ii=0; ii < actors.length; ii++)
                     if (actors[inc()].box.putnb(value)) return;
+                Task.yield();
+                for (int ii=0; ii < actors.length; ii++)
+                    if (actors[inc()].box.putnb(value)) return;
                 place(value);
             }
             void join() throws Pausable {
@@ -477,8 +480,15 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             MailboxSPSC<UU> box;
             Actors ctrl;
             public void execute() throws Pausable {
-                for (UU word; (word = box.get()) != ctrl.stop2;)
+                for (UU word; (word = get()) != ctrl.stop2;)
                     ctrl.action.accept(word);
+            }
+            UU get() throws Pausable {
+                UU val;
+                if ((val=box.getnb()) != null) return val;
+                Task.yield();
+                if ((val=box.getnb()) != null) return val;
+                return box.get();
             }
         }
     }
