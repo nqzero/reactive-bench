@@ -187,7 +187,7 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 (actors[ii] = new Runner()).start();
             int target = 0;
             for (String word : shakespeareWords) {
-                if (++target==actors.length) target = 0;
+                target = inc(target,actors.length);
                 while (!actors[target].queue.offer(word));
             }
             for (int ii=0; ii < actors.length; ii++)
@@ -216,10 +216,8 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
             int target = 0;
-            for (String word : shakespeareWords) {
-                if (++target==actors.length) target = 0;
-                actors[target].queue.put(word);
-            }
+            for (String word : shakespeareWords)
+                actors[target = inc(target,actors.length)].queue.put(word);
             for (int ii=0; ii < actors.length; ii++)
                 actors[ii].queue.put(stop);
 
@@ -247,10 +245,8 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
             int target = 0;
-            for (String word : shakespeareWords) {
-                if (++target==actors.length) target = 0;
-                actors[target].queue.put(word);
-            }
+            for (String word : shakespeareWords)
+                actors[target = inc(target,actors.length)].queue.put(word);
             for (int ii=0; ii < actors.length; ii++)
                 actors[ii].queue.put(stop);
 
@@ -293,10 +289,8 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
             try {
                 new Fiber<Void>(() -> {
                     int target = 0;
-                    for (String word : shakespeareWords) {
-                        if (++target==actors.length) target = 0;
-                        actors[target].box.send(word);
-                    }
+                    for (String word : shakespeareWords)
+                        actors[target = inc(target,actors.length)].box.send(word);
                     for (Worker actor : actors)
                         actor.box.send(stop);
                 }).start().joinNoSuspend();
@@ -359,6 +353,10 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
         }
     }
 
+    static int inc(int target,int length) {
+        if (++target==length) target = 0;
+        return target;
+    }
     public static class Kilim extends Base {
         static {
             Scheduler.setDefaultScheduler(new ForkJoinScheduler(-1));
@@ -370,10 +368,8 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
                 (actors[ii] = new Worker()).start();
             Task.fork(() -> {
                 int target = 0;
-                for (String word : shakespeareWords) {
-                    if (++target==actors.length) target = 0;
-                    actors[target].box.put(word);
-                }
+                for (String word : shakespeareWords)
+                    actors[target = inc(target,actors.length)].box.put(word);
                 for (Worker actor : actors)
                     actor.box.put(stop);
             }).joinb();
