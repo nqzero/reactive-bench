@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Jose Paumard
+ * Copyright (C) 2019 Jose Paumard, nqzero
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ import org.openjdk.jmh.annotations.*;
 import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 
 /**
- * Shakespeare plays Scrabble, using Kilim actors with backpressure.
+ * Shakespeare plays Scrabble, using various (theatrical ;) queues with backpressure
  * several actors are spawned,
  * the words are distributed to them,
  * each returns a list of matches,
@@ -55,9 +55,6 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
  * and the best results are returned
  * 
  * all word-processing code is copied verbatim from akarnokd's Direct implementation
- * 
- * kilim is a framework for building actors
- * 
  * 
  * @author José
  * @author akarnokd
@@ -630,56 +627,3 @@ public abstract class ShakespearePlaysScrabbleWithKilim extends ShakespearePlays
     }
 }
 
-/*
-
-num-threads: NT is slower than NT-1 for all, and much slower for Conv and Flat
-conversant: at best marginally faster with jdk10 classifier, prolly no change
-java 8 might be a bit faster
-
-java 8, 8 bits
-ShakespearePlaysScrabbleWithKilim.Conversant.measureThroughput  avgt    5  4.671 ± 0.983  ms/op
-ShakespearePlaysScrabbleWithKilim.Direct.measureThroughput      avgt    5  7.164 ± 0.977  ms/op
-ShakespearePlaysScrabbleWithKilim.Flat.measureThroughput        avgt    5  4.661 ± 0.971  ms/op
-ShakespearePlaysScrabbleWithKilim.Kilim.measureThroughput       avgt    5  4.065 ± 0.236  ms/op
-ShakespearePlaysScrabbleWithKilim.Threaded.measureThroughput    avgt    5  4.919 ± 0.726  ms/op
-
-java 12, 8 bits
-ShakespearePlaysScrabbleWithKilim.Conversant.measureThroughput  avgt    5  4.977 ± 0.777  ms/op
-ShakespearePlaysScrabbleWithKilim.Direct.measureThroughput      avgt    5  7.453 ± 0.106  ms/op
-ShakespearePlaysScrabbleWithKilim.Flat.measureThroughput        avgt    5  5.227 ± 0.853  ms/op
-ShakespearePlaysScrabbleWithKilim.Kilim.measureThroughput       avgt    5  4.257 ± 0.383  ms/op
-ShakespearePlaysScrabbleWithKilim.Threaded.measureThroughput    avgt    5  4.709 ± 0.758  ms/op
-
-java 12, 10 bits
-ShakespearePlaysScrabbleWithKilim.Conversant.measureThroughput  avgt    5  5.010 ± 0.197  ms/op
-ShakespearePlaysScrabbleWithKilim.Direct.measureThroughput      avgt    5  7.443 ± 0.171  ms/op
-ShakespearePlaysScrabbleWithKilim.Flat.measureThroughput        avgt    5  5.129 ± 1.033  ms/op
-ShakespearePlaysScrabbleWithKilim.Kilim.measureThroughput       avgt    5  3.965 ± 0.155  ms/op
-ShakespearePlaysScrabbleWithKilim.Threaded.measureThroughput    avgt    5  4.768 ± 0.861  ms/op
-
-java 12, 10 bits, without jdk10 classifier
-ShakespearePlaysScrabbleWithKilim.Conversant.measureThroughput  avgt    5  5.249 ± 0.451  ms/op
-ShakespearePlaysScrabbleWithKilim.Direct.measureThroughput      avgt    5  7.544 ± 0.248  ms/op
-ShakespearePlaysScrabbleWithKilim.Flat.measureThroughput        avgt    5  5.202 ± 0.611  ms/op
-ShakespearePlaysScrabbleWithKilim.Kilim.measureThroughput       avgt    5  4.029 ± 0.203  ms/op
-ShakespearePlaysScrabbleWithKilim.Threaded.measureThroughput    avgt    5  4.729 ± 0.761  ms/op
-
-java 12, 10 bits, w jdk10, 5*12+12
-ShakespearePlaysScrabbleWithKilim.Conversant.measureThroughput  avgt   60  4.741 ± 0.097  ms/op
-java 12, 10 bits, w/o jdk10, 5*12+12
-ShakespearePlaysScrabbleWithKilim.Conversant.measureThroughput  avgt   60  4.811 ± 0.204  ms/op
-ShakespearePlaysScrabbleWithKilim.Direct.measureThroughput      avgt   60  7.171 ± 0.129  ms/op
-ShakespearePlaysScrabbleWithKilim.Flat.measureThroughput        avgt   60  4.554 ± 0.109  ms/op
-ShakespearePlaysScrabbleWithKilim.Kilim.measureThroughput       avgt   60  4.112 ± 0.040  ms/op
-ShakespearePlaysScrabbleWithKilim.Threaded.measureThroughput    avgt   60  4.576 ± 0.059  ms/op
-
-java 8, 10 bits, w/o jdk10, 5*12+12
-ShakespearePlaysScrabbleWithKilim.Conversant.measureThroughput  avgt   60  4.761 ± 0.182  ms/op
-ShakespearePlaysScrabbleWithKilim.Direct.measureThroughput      avgt   60  6.453 ± 0.102  ms/op
-ShakespearePlaysScrabbleWithKilim.Flat.measureThroughput        avgt   60  4.320 ± 0.106  ms/op
-ShakespearePlaysScrabbleWithKilim.Kilim.measureThroughput       avgt   60  4.008 ± 0.029  ms/op
-ShakespearePlaysScrabbleWithKilim.Threaded.measureThroughput    avgt   60  4.636 ± 0.046  ms/op
-ShakespearePlaysScrabbleWithKilim.Movie.measureThroughput       avgt   60  4.047 ± 0.034  ms/op
-
-
-*/
