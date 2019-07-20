@@ -69,7 +69,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     static int size = 1<<10;
     static boolean fast;
     static String suffix;
-    static int numHash = 100;
+    static int numHash = 1000;
     TreeMap<Integer, List<String>> treemap;
     int smallest;
     int numSave = 3;
