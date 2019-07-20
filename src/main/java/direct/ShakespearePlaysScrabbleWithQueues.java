@@ -197,24 +197,22 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static class Conversant extends Base {
+        private DisruptorBlockingQueue<String> queue = new DisruptorBlockingQueue<>(size, SpinPolicy.WAITING);
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
-            int target = 0;
             for (String word : shakespeareWords)
-                actors[target = inc(target,actors.length)].queue.put(word);
+                queue.put(word);
             for (int ii=0; ii < actors.length; ii++)
-                actors[ii].queue.put(stop);
+                queue.put(stop);
 
             for (Runner actor : actors)
                 actor.join();
             return getList();
         }
         class Runner extends Thread {
-            private DisruptorBlockingQueue<String> queue =
-                    new DisruptorBlockingQueue<>(size, SpinPolicy.WAITING);
             public void run() {
                 for (String word; (word = queue.poll()) != stop;) {
                     Integer num = getWord(word);
