@@ -32,7 +32,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import kilim.ForkJoinScheduler;
@@ -68,7 +67,6 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlaysScrabble {
     static int numProc = Runtime.getRuntime().availableProcessors();
     static int size = 1<<10;
-    static int delay;
     static boolean fast;
     static String suffix;
     static int numHash = 100;
@@ -78,8 +76,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     Count lastCount = new Count(0, null);
 
     static {
-        try { delay = Integer.parseInt(System.getProperty("d")); }
-        catch (Exception ex) { delay = 12000; }
         try { numProc = Integer.parseInt(System.getProperty("np")); }
         catch (Exception ex) {}
         try { size = 1<<Integer.parseInt(System.getProperty("size")); }
@@ -127,12 +123,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     @Setup(Level.Invocation)
     public void setup() {
         treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
-    }
-
-    @TearDown(Level.Trial)
-    public void doSetup() {
-        try { Thread.sleep(delay); }
-        catch (InterruptedException ex) {}
     }
 
     static class Count {
