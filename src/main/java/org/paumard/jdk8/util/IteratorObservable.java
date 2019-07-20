@@ -18,8 +18,8 @@
 
 package org.paumard.jdk8.util;
 
-import rx.Observable;
 
+import io.reactivex.Observable;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;

@@ -13,7 +13,7 @@
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
         <gscollections.version>6.0.0</gscollections.version>
-        <rxjava.version>1.0.15</rxjava.version>
+        <rxjava.version>3.0.0-RC1</rxjava.version>
         <kilim.version>2.0.2</kilim.version>
         <jmh.version>1.21</jmh.version>
         <uberjar.name>benchmarks</uberjar.name>
@@ -47,7 +47,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.reactivex</groupId>
+            <groupId>io.reactivex.rxjava3</groupId>
             <artifactId>rxjava</artifactId>
             <version>${rxjava.version}</version>
         </dependency>
