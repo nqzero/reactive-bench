@@ -1,21 +1,80 @@
-This project contains de source code of the bench I have presented at JavaOne 2015 and Devoxx 2015 (available here: https://www.youtube.com/watch?v=fabN6HNZ2qY, minus the GC Collections part). It compares the performances of the implementations of the "Shakespeare plays Scrabble" kata using the GC Collections, RxJava and Java 8 Stream API frameworks.
+# Shakespeare plays Reactive Scrabble with Queues
 
-It is just a copy of `jdk8-stream-rx-comparison` under the Apache 2.0 licence. 
+Use JMH to benchmark several queue libraries and their ability to coordinate work
+on a number of threads.
 
-This bench has no other purpose than to show different performances on the chosen problem, please, do not take it as a general bench, and do not draw conclusions that could be wrong on other use cases.
 
-It is built on JMH, the standard tool used to measure performances in Java.
+## Queues
 
-You need Maven to build and run this bench.
+* [Conversant Disruptor](https://github.com/conversant/disruptor): a fast blocking queue
+* Java 8 streams
+* [JcTools](https://github.com/JCTools/JCTools): psy-lob-saw's concurrent data structures
+* [Kilim](https://github.com/kilim/kilim): fibers, continuations and message passing for java
+* [Quasar](https://github.com/puniverse/quasar): fibers and message passing for java and kotlin
+* [RxJava](https://github.com/ReactiveX/RxJava): reactive extensions for the JVM
 
-    $ mvn clean install
+Note:
+the intent of these implementations is that buffering should be limited to
+simulate a live connection in which real resources are consumed
+and show the advantages of a reactive approach.
 
-This creates a `benchmark.jar` file in your `target` directory. This jar contains what needs to be run to run the benchmark.
+* for Java 8 streams, it's not clear to what degree the iterable is buffered
+* I'm not experienced enough with RxJava to know how much buffering occurs
+* the other libraries provide obvious buffer sizes (which I'm trusting)
 
-    $ java -jar target/benchmark.jar
+## Running
 
-This runs the benchmark and prints out the result on the console. Of course, the execution of this benchmark has very little chance to produce the same result as the one I showed in my talks.
+```
+sudo cpupower frequency-set -u 2.8ghz
+java -version 2>&1 | head -n1 | grep -q "version\W*1.8" && git checkout quasar7
+cp=$(mvn -q dependency:build-classpath -Dmdep.outputFile=/dev/fd/1)
+quasar="-javaagent:$(echo $cp | grep -o '[^:]*' | grep quasar-core)"
+mvn package
+java $quasar -jar target/benchmarks.jar
+java $quasar -cp target/classes:$cp direct.ShakespearePlaysScrabbleWithQueues
+```
 
-This bench uses two data files: `ospd.txt` and `words.shakespeare.txt`. They can be freely downloaded from Robert Sedgewick page here: http://introcs.cs.princeton.edu/java/data/. By the way, there are other very interesting data sets on this page.
+Notes:
 
+* depending on your machine, you may experience thermal throttling.
+Adjust the first line accordingly.
+* quasar 0.8 supports java 9 and later, and is incompatible with java 8.
+this is the default. for java 8, the above checks out the quasar7 tag
+
+
+## Flags
+
+For the direct implementations, some jvm `-D` flags are accepted.
+* `-Dsuffix=xxx`: for words matching this suffix, hash the word and modify the score.
+try "-Dsuffix=ks"
+* `-Dnh=1000`: number of sha-256 hashes to perform. default is 1000
+* `-Dfast`: only store the 3 best scores at any time
+* `-Dnp=4`: number of cpus to assume. default is number of available cpus
+* `-Dsize=10`: the number of bits of buffer to use. default is 10
+
+these flags can be useful for understanding how the implementations perform.
+
+
+## Results
+
+
+
+
+
+## License and History
+
+Apache 2.0 licence
+
+This project is a merged fork of two projects
+
+* [Jose Paumard's kata from Devoxx 2015](https://github.com/JosePaumard/jdk8-stream-rx-comparison-reloaded)
+* [David Karnok's (RxJava) direct implementation](https://github.com/akarnokd/akarnokd-misc/blob/master/src/jmh)
+
+This project adds several multi-threaded implementations using different queues
+for communicating between the threads.
+
+This bench uses two data files: `ospd.txt` and `words.shakespeare.txt`.
+They can be freely downloaded from Robert Sedgewick page here: http://introcs.cs.princeton.edu/java/data/.
 Those two data sets files are under the copyright of their authors, and provided for convenience only.
+
+
