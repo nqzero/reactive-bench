@@ -25,6 +25,7 @@ import co.paralleluniverse.strands.channels.Channels.OverflowPolicy;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
+import io.reactivex.Flowable;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
@@ -265,6 +266,25 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
     }
 
+    public static class RxJava extends Base {
+        @Benchmark
+        public Object measureThroughput() {
+            // fixme - verify backpressure, eg buffer of size
+            // fixme - map output is unused, can we avoid it ?
+            Flowable.fromIterable(Source::new)
+                    .parallel()
+                    .runOn(io.reactivex.schedulers.Schedulers.computation())
+                    .map(word -> {
+                        Integer num = getWord(word);
+                        if (num != null)
+                            addWord(num, word);
+                        return 0;
+                    })
+                    .sequential()
+                    .blockingLast();
+            return getList();
+        }
+    }
     public static class Stream8 extends Base {
         @Benchmark
         public Object measureThroughput() {
@@ -280,11 +300,12 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             });
             return getList();
         }
-        class Source implements Iterator<String> {
-            Iterator<String> iter = shakespeareWords.iterator();
-            public boolean hasNext() { return iter.hasNext(); }
-            public String next() { return iter.next(); }
-        }
+    }
+
+    class Source implements Iterator<String> {
+        Iterator<String> iter = shakespeareWords.iterator();
+        public boolean hasNext() { return iter.hasNext(); }
+        public String next() { return iter.next(); }
     }
 
     public static class Quasar extends Base {
@@ -581,6 +602,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static void main(String[] args) throws Exception {
+        new RxJava().doMain();
         new Jctools().doMain();
         new JctoolsFair().doMain();
         new Conversant().doMain();
