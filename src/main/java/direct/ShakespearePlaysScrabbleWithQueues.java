@@ -148,7 +148,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         class Runner extends Thread {
             public void run() {
                 for (Stringx word; (word = queue.poll()) != stop;)
-                    playWord(word);
+                    playWordMaybe(word);
             }
         }
     }
@@ -175,7 +175,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             SpscArrayQueue<Stringx> queue = new SpscArrayQueue(size);
             public void run() {
                 for (Stringx word; (word = queue.poll()) != stop;)
-                    playWord(word);
+                    playWordMaybe(word);
             }
         }
     }
@@ -199,7 +199,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         class Runner extends Thread {
             public void run() {
                 for (Stringx word; (word = queue.poll()) != stop;)
-                    playWord(word);
+                    playWordMaybe(word);
             }
         }
     }
@@ -225,7 +225,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                     new PushPullBlockingQueue<>(size, SpinPolicy.WAITING);
             public void run() {
                 for (Stringx word; (word = queue.poll()) != stop;)
-                    playWord(word);
+                    playWordMaybe(word);
             }
         }
     }
@@ -541,11 +541,15 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
 
     }
+    void playWordMaybe(Stringx wordx) {
+        if (wordx != null) playWord(wordx);
+    }
     void playWord(Stringx wordx) {
         String word = wordx.data;
             Integer num = getWord(word);
             if (num != null)
                 addWord(num,word);
+            wordx.dispose();
     }
     
     Object getList() {

@@ -19,6 +19,7 @@ package org.paumard.jdk8.bench;
 
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -43,20 +44,41 @@ public class ShakespearePlaysScrabble {
     public Iterable<Stringx> shakespeareWords() {
         return Source::new;
     }
+    AtomicInteger outstanding = new AtomicInteger();
+    int maxOut = 300;
+    static int MAX_SLEEP = 10;
+    static int MAX_YIELD = 1000;
     
     @Setup
     public void init() {
     	scrabbleWords = Util.readScrabbleWords() ;
         words = Util.readShakespeareWords();
     }
+
     class Source implements Iterator<Stringx> {
+        int nyield;
         Iterator<String> iter = words.iterator();
         public boolean hasNext() { return iter.hasNext(); }
-        public Stringx next() { return new Stringx(iter.next()); }
+        public Stringx next() {
+            try {
+                int ii=0;
+                for (; ii <= MAX_SLEEP && outstanding.get() >= maxOut; ii++)
+                    Thread.sleep(ii < MAX_SLEEP ? 0:1);
+                if (ii > MAX_SLEEP && ++nyield > MAX_YIELD)
+                    System.exit(1);
+                outstanding.incrementAndGet();
+                return new Stringx(iter.next());
+            }
+            catch (InterruptedException ex) {}
+            return null;
+        }
     }
 
     public class Stringx {
         public String data;
         public Stringx(String data) { this.data = data; }
+        public void dispose() {
+            outstanding.decrementAndGet();
+        }
     }
 }
