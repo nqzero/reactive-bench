@@ -40,7 +40,7 @@ public class ShakespearePlaysScrabble {
     
     public Set<String> scrabbleWords = null ;
     private Set<String> words = null ;
-    public Iterable<String> shakespeareWords() {
+    public Iterable<Stringx> shakespeareWords() {
         return Source::new;
     }
     
@@ -49,10 +49,14 @@ public class ShakespearePlaysScrabble {
     	scrabbleWords = Util.readScrabbleWords() ;
         words = Util.readShakespeareWords();
     }
-    class Source implements Iterator<String> {
+    class Source implements Iterator<Stringx> {
         Iterator<String> iter = words.iterator();
         public boolean hasNext() { return iter.hasNext(); }
-        public String next() { return iter.next(); }
+        public Stringx next() { return new Stringx(iter.next()); }
     }
 
+    public class Stringx {
+        public String data;
+        public Stringx(String data) { this.data = data; }
+    }
 }
