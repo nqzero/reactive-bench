@@ -147,11 +147,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
         class Runner extends Thread {
             public void run() {
-                for (String word; (word = queue.poll()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
+                for (String word; (word = queue.poll()) != stop;)
+                    playWord(word);
             }
         }
     }
@@ -177,11 +174,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         class Runner extends Thread {
             SpscArrayQueue<String> queue = new SpscArrayQueue(size);
             public void run() {
-                for (String word; (word = queue.poll()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
+                for (String word; (word = queue.poll()) != stop;)
+                    playWord(word);
             }
         }
     }
@@ -204,11 +198,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
         class Runner extends Thread {
             public void run() {
-                for (String word; (word = queue.poll()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
+                for (String word; (word = queue.poll()) != stop;)
+                    playWord(word);
             }
         }
     }
@@ -233,11 +224,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             private PushPullBlockingQueue<String> queue =
                     new PushPullBlockingQueue<>(size, SpinPolicy.WAITING);
             public void run() {
-                for (String word; (word = queue.poll()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
+                for (String word; (word = queue.poll()) != stop;)
+                    playWord(word);
             }
         }
     }
@@ -245,11 +233,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     public static class Direct extends Base {
         @Benchmark
         public Object measureThroughput() {
-            for (String word : shakespeareWords()) {
-                Integer num = getWord(word);
-                if (num != null)
-                    addWord(num, word);
-            }
+            for (String word : shakespeareWords())
+                playWord(word);
             return getList();
         }
     }
@@ -263,9 +248,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                     .parallel()
                     .runOn(io.reactivex.schedulers.Schedulers.computation())
                     .map(word -> {
-                        Integer num = getWord(word);
-                        if (num != null)
-                            addWord(num, word);
+                        playWord(word);
                         return 0;
                     })
                     .sequential()
@@ -281,11 +264,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             // fixme - are any characteristics useful here ?
             Stream<String> unsplittable =
                 StreamSupport.stream(Spliterators.spliteratorUnknownSize(shakespeareWords().iterator(),0),true);
-            unsplittable.forEach(word -> {
-                Integer num = getWord(word);
-                if (num!=null)
-                    addWord(num,word);
-            });
+            unsplittable.forEach(word -> playWord(word));
             return getList();
         }
     }
@@ -316,11 +295,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             Channel<String> box = Channels.newChannel(size,OverflowPolicy.BACKOFF,true,true);
 
             protected Void run() throws SuspendExecution,InterruptedException {
-                for (String word; (word = box.receive()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
+                for (String word; (word = box.receive()) != stop;)
+                    playWord(word);
                 return null;
             }
         }
@@ -353,11 +329,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         class Worker extends Fiber<Void> {
 
             protected Void run() throws SuspendExecution,InterruptedException {
-                for (String word; (word = box.receive()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
+                for (String word; (word = box.receive()) != stop;)
+                    playWord(word);
                 return null;
             }
         }
@@ -393,11 +366,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             MailboxSPSC<String> box = new MailboxSPSC(size);
 
             public void execute() throws Pausable {
-                for (String word; (word = box.get()) != stop;) {
-                    Integer num = getWord(word);
-                    if (num != null)
-                        addWord(num,word);
-                }
+                for (String word; (word = box.get()) != stop;)
+                    playWord(word);
             }
         }
     }
@@ -408,11 +378,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            cast(shakespeareWords(),word -> {
-                Integer num = getWord(word);
-                if (num != null)
-                    addWord(num,word);
-            });
+            cast(shakespeareWords(),word -> playWord(word));
             return getList();
         }
 
@@ -569,6 +535,12 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                 }
             }
         }
+
+    }
+    void playWord(String word) {
+            Integer num = getWord(word);
+            if (num != null)
+                addWord(num,word);
     }
     
     Object getList() {
