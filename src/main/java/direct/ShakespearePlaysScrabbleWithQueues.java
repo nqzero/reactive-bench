@@ -146,7 +146,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
-            for (String word : shakespeareWords)
+            for (String word : shakespeareWords())
                 while (! queue.offer(word));
             for (int ii=0; ii < actors.length; ii++)
                 while (! queue.offer(stop));
@@ -174,7 +174,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
             int target = 0;
-            for (String word : shakespeareWords) {
+            for (String word : shakespeareWords()) {
                 target = inc(target,actors.length);
                 while (!actors[target].queue.offer(word));
             }
@@ -204,7 +204,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
-            for (String word : shakespeareWords)
+            for (String word : shakespeareWords())
                 queue.put(word);
             for (int ii=0; ii < actors.length; ii++)
                 queue.put(stop);
@@ -231,7 +231,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
             int target = 0;
-            for (String word : shakespeareWords)
+            for (String word : shakespeareWords())
                 actors[target = inc(target,actors.length)].queue.put(word);
             for (int ii=0; ii < actors.length; ii++)
                 actors[ii].queue.put(stop);
@@ -257,7 +257,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     public static class Direct extends Base {
         @Benchmark
         public Object measureThroughput() {
-            for (String word : shakespeareWords) {
+            for (String word : shakespeareWords()) {
                 Integer num = getWord(word);
                 if (num != null)
                     addWord(num, word);
@@ -271,7 +271,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         public Object measureThroughput() {
             // fixme - verify backpressure, eg buffer of size
             // fixme - map output is unused, can we avoid it ?
-            Flowable.fromIterable(Source::new)
+            Flowable.fromIterable(shakespeareWords())
                     .parallel()
                     .runOn(io.reactivex.schedulers.Schedulers.computation())
                     .map(word -> {
@@ -292,7 +292,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             //   ie, to simulate backpressure
             // fixme - are any characteristics useful here ?
             Stream<String> unsplittable =
-                StreamSupport.stream(Spliterators.spliteratorUnknownSize(new Source(),0),true);
+                StreamSupport.stream(Spliterators.spliteratorUnknownSize(shakespeareWords().iterator(),0),true);
             unsplittable.forEach(word -> {
                 Integer num = getWord(word);
                 if (num!=null)
@@ -300,12 +300,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             });
             return getList();
         }
-    }
-
-    class Source implements Iterator<String> {
-        Iterator<String> iter = shakespeareWords.iterator();
-        public boolean hasNext() { return iter.hasNext(); }
-        public String next() { return iter.next(); }
     }
 
     public static class Quasar extends Base {
@@ -317,7 +311,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             try {
                 new Fiber<Void>(() -> {
                     int target = 0;
-                    for (String word : shakespeareWords)
+                    for (String word : shakespeareWords())
                         actors[target = inc(target,actors.length)].box.send(word);
                     for (Worker actor : actors)
                         actor.box.send(stop);
@@ -354,7 +348,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                 (actors[ii] = new Worker()).start();
             try {
                 new Fiber<Void>(() -> {
-                    for (String word : shakespeareWords)
+                    for (String word : shakespeareWords())
                         box.send(word);
                     for (Worker actor : actors)
                         box.send(stop);
@@ -396,7 +390,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                 (actors[ii] = new Worker()).start();
             Task.fork(() -> {
                 int target = 0;
-                for (String word : shakespeareWords)
+                for (String word : shakespeareWords())
                     actors[target = inc(target,actors.length)].box.put(word);
                 for (Worker actor : actors)
                     actor.box.put(stop);
@@ -426,7 +420,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
         @Benchmark
         public Object measureThroughput() throws InterruptedException {
-            cast(shakespeareWords,word -> {
+            cast(shakespeareWords(),word -> {
                 Integer num = getWord(word);
                 if (num != null)
                     addWord(num,word);

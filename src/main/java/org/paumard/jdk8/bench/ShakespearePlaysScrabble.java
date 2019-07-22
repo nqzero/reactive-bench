@@ -17,6 +17,7 @@
 
 package org.paumard.jdk8.bench;
 
+import java.util.Iterator;
 import java.util.Set;
 
 import org.openjdk.jmh.annotations.Scope;
@@ -38,12 +39,20 @@ public class ShakespearePlaysScrabble {
     
     
     public Set<String> scrabbleWords = null ;
-    public Set<String> shakespeareWords = null ;
+    private Set<String> words = null ;
+    public Iterable<String> shakespeareWords() {
+        return Source::new;
+    }
     
     @Setup
     public void init() {
     	scrabbleWords = Util.readScrabbleWords() ;
-    	shakespeareWords = Util.readShakespeareWords() ;
+        words = Util.readShakespeareWords();
+    }
+    class Source implements Iterator<String> {
+        Iterator<String> iter = words.iterator();
+        public boolean hasNext() { return iter.hasNext(); }
+        public String next() { return iter.next(); }
     }
 
 }
