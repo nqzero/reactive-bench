@@ -74,7 +74,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     TreeMap<Integer, List<String>> treemap;
     int smallest;
     int numSave = 3;
-    Count lastCount = new Count(0, null);
 
     static {
         try { numProc = Integer.parseInt(System.getProperty("np")); }
@@ -126,16 +125,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
     }
 
-    static class Count {
-        int num;
-        String word;
-
-        public Count(int num,String word) {
-            this.num = num;
-            this.word = word;
-        }
-        
-    }
     String stop = new String();
 
     public static class JctoolsFair extends Base {
@@ -243,7 +232,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         class Runner extends Thread {
             private PushPullBlockingQueue<String> queue =
                     new PushPullBlockingQueue<>(size, SpinPolicy.WAITING);
-            ArrayList<Count> list = new ArrayList<>();
             public void run() {
                 for (String word; (word = queue.poll()) != stop;) {
                     Integer num = getWord(word);
