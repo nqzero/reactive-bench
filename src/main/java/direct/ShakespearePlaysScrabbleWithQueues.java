@@ -263,7 +263,11 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             //   ie, to simulate backpressure
             // fixme - are any characteristics useful here ?
             Stream<Stringx> unsplittable =
-                StreamSupport.stream(Spliterators.spliteratorUnknownSize(shakespeareWords().iterator(),0),true);
+                StreamSupport.stream(
+                        Spliterators.spliteratorUnknownSize(
+                                shakespeareWords().iterator(),
+                                Spliterator.NONNULL | Spliterator.IMMUTABLE
+                        ),true);
             unsplittable.forEach(word -> playWord(word));
             return getList();
         }
