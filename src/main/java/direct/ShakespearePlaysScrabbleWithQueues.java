@@ -116,7 +116,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         void doMain() throws Exception {
             init();
             setup();
-            System.out.println(measureThroughput());
+            System.out.format("%8s: %s\n",getClass().getSimpleName(),measureThroughput());
         }
     }
 
