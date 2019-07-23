@@ -67,24 +67,24 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 @Measurement(iterations=12, time=1)
 public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlaysScrabble {
     static int numProc = Runtime.getRuntime().availableProcessors();
-    static int size = 1<<10;
     static boolean fast;
-    static String suffix;
-    static int numHash = 1000;
+
+
+    @Param("ks")
+    public String suffix;
+
+    @Param("0")
+    static int numHash;
+    
     TreeMap<Integer, List<String>> treemap;
-    int smallest;
     int numSave = 3;
 
     static {
         try { numProc = Integer.parseInt(System.getProperty("np")); }
         catch (Exception ex) {}
-        try { size = 1<<Integer.parseInt(System.getProperty("size")); }
-        catch (Exception ex) {}
         fast = System.getProperty("fast") != null;
-        suffix = System.getProperty("suffix");
-        try { numHash = Integer.parseInt(System.getProperty("nh")); }
-        catch (Exception ex) {}
     }
+
     static int numPool = Math.max(1,numProc-1);
     static ThreadLocal<MessageDigest> digest = new ThreadLocal();
     static MessageDigest digest() {
@@ -394,7 +394,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                 actors.join();
             }).joinb();
         }
-        static <UU> void cast(Iterable<UU> able,Consumer<UU> action) {
+        <UU> void cast(Iterable<UU> able,Consumer<UU> action) {
             // fixme - constants are used here only for benchmarking
             //         api may need to expose those arguments or just use sane defaults
             Actors<UU> actors = new Actors(numProc,size,action);

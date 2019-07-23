@@ -20,6 +20,7 @@ package org.paumard.jdk8.bench;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.openjdk.jmh.annotations.Param;
 
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -42,11 +43,20 @@ public class ShakespearePlaysScrabble {
     public Set<String> scrabbleWords = null ;
     private Set<String> words = null ;
     public Iterable<Stringx> shakespeareWords() {
-        return Source::new;
+        return sleep==0 ? Source::new : SleepSource::new;
     }
     AtomicInteger outstanding = new AtomicInteger();
-    int maxOut = 300;
-    static int MAX_SLEEP = 10;
+
+
+    @Param("256")
+    public int size = 1<<8;
+
+    @Param("256")
+    public int soft = 1<<8;
+
+    @Param("0")
+    public int sleep = 0;
+
     static int MAX_YIELD = 1000;
     
     @Setup
@@ -56,15 +66,22 @@ public class ShakespearePlaysScrabble {
     }
 
     class Source implements Iterator<Stringx> {
+        Iterator<String> iter = words.iterator();
+        public boolean hasNext() { return iter.hasNext(); }
+        public Stringx next() { return new Stringx(iter.next()); }
+    }
+
+    class SleepSource implements Iterator<Stringx> {
+        int maxOut = soft + 32;
         int nyield;
         Iterator<String> iter = words.iterator();
         public boolean hasNext() { return iter.hasNext(); }
         public Stringx next() {
             try {
                 int ii=0;
-                for (; ii <= MAX_SLEEP && outstanding.get() >= maxOut; ii++)
-                    Thread.sleep(ii < MAX_SLEEP ? 0:1);
-                if (ii > MAX_SLEEP && ++nyield > MAX_YIELD)
+                for (; ii <= sleep && outstanding.get() >= maxOut; ii++)
+                    Thread.sleep(ii < sleep ? 0:1);
+                if (ii > sleep && ++nyield > MAX_YIELD)
                     System.exit(1);
                 outstanding.incrementAndGet();
                 return new Stringx(iter.next());
