@@ -101,9 +101,11 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             if (digest2==null)
                 digest.set(digest2 = digest());
             for (int ii=0; ii < numHash; ii++) {
-                byte[] hash = digest2.digest(word.getBytes(StandardCharsets.UTF_8));
-                score += hash[0] < 32 ? 1:0;
-                word += "a";
+                String key = word + ii;
+                byte[] hash = digest2.digest(key.getBytes(StandardCharsets.UTF_8));
+                byte first = hash[0];
+                for (int jj=0; jj < hash.length; jj++) first ^= hash[jj];
+                score += first < 32 ? 1:0;
             }
         }
         return score;
