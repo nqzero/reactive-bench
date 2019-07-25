@@ -66,26 +66,9 @@ import org.paumard.jdk8.bench.ShakespearePlaysScrabble;
 @Warmup(iterations=12, time=1)
 @Measurement(iterations=12, time=1)
 public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlaysScrabble {
-    static int numProc = Runtime.getRuntime().availableProcessors();
-    static boolean fast;
-
-
-    @Param("ks")
-    public String suffix;
-
-    @Param("0")
-    static int numHash;
-    
     TreeMap<Integer, List<String>> treemap;
     int numSave = 3;
 
-    static {
-        try { numProc = Integer.parseInt(System.getProperty("np")); }
-        catch (Exception ex) {}
-        fast = System.getProperty("fast") != null;
-    }
-
-    static int numPool = Math.max(1,numProc-1);
     static ThreadLocal<MessageDigest> digest = new ThreadLocal();
     static MessageDigest digest() {
         try {
@@ -94,6 +77,9 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             throw new RuntimeException(ex);
         }
     }
+
+
+
     int hash(String word) {
         int score = 0;
         if (numHash > 0 && suffix != null && word.endsWith(suffix)) {

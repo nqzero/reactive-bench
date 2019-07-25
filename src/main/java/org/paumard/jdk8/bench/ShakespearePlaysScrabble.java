@@ -25,11 +25,28 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.infra.Blackhole;
 
 
 @State(Scope.Benchmark)
 public class ShakespearePlaysScrabble {
+    public static int numProc = Runtime.getRuntime().availableProcessors();
+    public static boolean fast;
 
+
+    @Param("ks")
+    public String suffix;
+
+    @Param("0")
+    public int numHash;
+    
+    static {
+        try { numProc = Integer.parseInt(System.getProperty("np")); }
+        catch (Exception ex) {}
+        fast = System.getProperty("fast") != null;
+    }
+
+    static public int numPool = Math.max(1,numProc-1);
     
     public static final int [] letterScores = {
     // a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p,  q, r, s, t, u, v, w, x, y,  z
@@ -43,6 +60,7 @@ public class ShakespearePlaysScrabble {
     public Set<String> scrabbleWords = null ;
     private Set<String> words = null ;
     public Iterable<Stringx> shakespeareWords() {
+        if (sleep == -1) return BurnSource::new;
         return sleep==0 ? Source::new : SleepSource::new;
     }
     AtomicInteger outstanding = new AtomicInteger();
@@ -91,6 +109,31 @@ public class ShakespearePlaysScrabble {
             }
             catch (InterruptedException ex) {}
             return null;
+        }
+    }
+
+    class BurnSource implements Iterator<Stringx> {
+        int index;
+        Thread [] burners = new Thread[numProc];
+        Iterator<String> iter = words.iterator();
+        {
+            for (int ii=0; ii < burners.length; ii++)
+                (burners[ii] = new Thread(() -> Blackhole.consumeCPU(100_000_000))).start();
+        }
+        public boolean hasNext() {
+            try {
+                Thread.sleep(1);
+                if (index < 100)
+                    return iter.hasNext();
+                for (Thread thread : burners)
+                    thread.join();
+            }
+            catch (InterruptedException ex) {}
+            return false;
+        }
+        public Stringx next() {
+            index++;
+            return new Stringx(iter.next());
         }
     }
 
