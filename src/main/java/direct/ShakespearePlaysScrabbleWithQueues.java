@@ -106,8 +106,13 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             setup();
             System.out.format("%8s: %s\n",getClass().getSimpleName(),measureThroughput());
         }
+        @Benchmark
+        public Object bench() throws InterruptedException {
+            return measureThroughput();
+        }
     }
 
+    
     @Setup(Level.Invocation)
     public void setup() {
         treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
@@ -117,7 +122,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
 
     public static class JctoolsFair extends Base {
         SpmcArrayQueue<Stringx> queue;
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             queue = new SpmcArrayQueue(size);
             Runner [] actors = new Runner[numPool];
@@ -142,7 +146,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static class Jctools extends Base {
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
@@ -170,7 +173,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
 
     public static class Conversant extends Base {
         private DisruptorBlockingQueue<Stringx> queue = new DisruptorBlockingQueue<>(size, SpinPolicy.WAITING);
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
@@ -193,7 +195,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static class Push extends Base {
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
@@ -219,7 +220,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
     
     public static class Direct extends Base {
-        @Benchmark
         public Object measureThroughput() {
             for (Stringx word : shakespeareWords())
                 playWord(word);
@@ -228,7 +228,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static class RxJava extends Base {
-        @Benchmark
         public Object measureThroughput() {
             // fixme - verify backpressure, eg buffer of size
             // fixme - map output is unused, can we avoid it ?
@@ -245,7 +244,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
     }
     public static class Stream8 extends Base {
-        @Benchmark
         public Object measureThroughput() {
             // force the words to be processed linearly
             //   ie, to simulate backpressure
@@ -262,7 +260,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static class Quasar extends Base {
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Worker [] actors = new Worker[numProc];
             for (int ii=0; ii < actors.length; ii++)
@@ -296,7 +293,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
 
     public static class QuasarFair extends Base {
         Channel<Stringx> box;
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             box = Channels.newChannel(size,OverflowPolicy.BACKOFF,true,false);
             Worker [] actors = new Worker[numProc];
@@ -343,7 +339,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         static {
             Scheduler.setDefaultScheduler(new ForkJoinScheduler(-1));
         }
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             Worker [] actors = new Worker[numProc];
             for (int ii=0; ii < actors.length; ii++)
@@ -375,7 +370,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         static {
             Scheduler.setDefaultScheduler(new ForkJoinScheduler(-1));
         }
-        @Benchmark
         public Object measureThroughput() throws InterruptedException {
             cast(shakespeareWords(),word -> playWord(word));
             return getList();
