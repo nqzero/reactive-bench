@@ -60,6 +60,7 @@ public class ShakespearePlaysScrabble {
     public Set<String> scrabbleWords = null ;
     private Set<String> words = null ;
     public Iterable<Stringx> shakespeareWords() {
+        if (sleep < -1) return LimitSource::new;
         if (sleep == -1) return BurnSource::new;
         return sleep==0 ? Source::new : SleepSource::new;
     }
@@ -129,6 +130,20 @@ public class ShakespearePlaysScrabble {
                     thread.join();
             }
             catch (InterruptedException ex) {}
+            return false;
+        }
+        public Stringx next() {
+            index++;
+            return new Stringx(iter.next());
+        }
+    }
+    class LimitSource implements Iterator<Stringx> {
+        int index;
+        int limit = -sleep;
+        Iterator<String> iter = words.iterator();
+        public boolean hasNext() {
+            if (index < limit)
+                return iter.hasNext();
             return false;
         }
         public Stringx next() {
