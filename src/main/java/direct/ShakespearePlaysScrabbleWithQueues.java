@@ -342,6 +342,13 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
     }
 
+    int size(int delta,int num) {
+        if (size != 0)
+            return size;
+        int max = Math.max((soft - delta)/num,1);
+        return Integer.highestOneBit(max);
+    }
+
     static int inc(int target,int length) {
         if (++target==length) target = 0;
         return target;
@@ -369,7 +376,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
 
         class Worker extends Task<Void> {
-            MailboxSPSC<Stringx> box = new MailboxSPSC(size);
+            MailboxSPSC<Stringx> box = new MailboxSPSC(sleep==0 ? 256:size(1+numProc,numProc));
 
             public void execute() throws Pausable {
                 for (Stringx word; (word = box.get()) != stop;)
@@ -399,7 +406,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         <UU> void cast(Iterable<UU> able,Consumer<UU> action) {
             // fixme - constants are used here only for benchmarking
             //         api may need to expose those arguments or just use sane defaults
-            Actors<UU> actors = new Actors(numProc,size,action);
+            Actors<UU> actors = new Actors(numProc,size(1+numProc,numProc),action);
             Task.fork(() -> {
                 for (UU val : able)
                     actors.put(val);

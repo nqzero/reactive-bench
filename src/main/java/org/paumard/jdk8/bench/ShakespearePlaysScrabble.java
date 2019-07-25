@@ -72,7 +72,7 @@ public class ShakespearePlaysScrabble {
     }
 
     class SleepSource implements Iterator<Stringx> {
-        int maxOut = soft + 32;
+        int maxOut = soft;
         int nyield;
         Iterator<String> iter = words.iterator();
         public boolean hasNext() { return iter.hasNext(); }
