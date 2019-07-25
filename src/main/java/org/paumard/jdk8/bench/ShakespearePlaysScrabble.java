@@ -81,8 +81,11 @@ public class ShakespearePlaysScrabble {
                 int ii=0;
                 for (; ii <= sleep && outstanding.get() >= maxOut; ii++)
                     Thread.sleep(ii < sleep ? 0:1);
-                if (ii > sleep && ++nyield > MAX_YIELD)
+                if (ii > sleep && ++nyield > MAX_YIELD) {
+                    String msg = "number of yields exceeded - shutting down immediately";
+                    new AssertionError(msg).printStackTrace();
                     System.exit(1);
+                }
                 outstanding.incrementAndGet();
                 return new Stringx(iter.next());
             }
