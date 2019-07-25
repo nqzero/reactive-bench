@@ -103,21 +103,18 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     public static abstract class Base extends ShakespearePlaysScrabbleWithQueues implements Jmh {
         void doMain() throws Exception {
             init();
-            setup();
-            System.out.format("%8s: %s\n",getClass().getSimpleName(),measureThroughput());
+            System.out.format("%8s: %s\n",getClass().getSimpleName(),bench());
         }
         @Benchmark
         public Object bench() throws InterruptedException {
-            return measureThroughput();
+            treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
+            Object obj = measureThroughput();
+            treemap = null;
+            return obj;
         }
     }
 
     
-    @Setup(Level.Invocation)
-    public void setup() {
-        treemap = new TreeMap<Integer, List<String>>(Comparator.reverseOrder());
-    }
-
     Stringx stop = new Stringx(null);
 
     public static class JctoolsFair extends Base {
@@ -549,7 +546,6 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                 break;
             list.add(e);
         }
-        treemap = null;
         return list;
     }
 
