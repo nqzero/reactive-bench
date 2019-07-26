@@ -76,12 +76,24 @@ public class ShakespearePlaysScrabble {
     @Param("0")
     public int sleep = 0;
 
+    @Param("")
+    public String mode;
+
     static int MAX_YIELD = 1000;
+
+    boolean startsWith(String txt) { return mode.startsWith(txt.substring(0,1)); }
     
     @Setup
     public void init() {
     	scrabbleWords = Util.readScrabbleWords() ;
         words = Util.readShakespeareWords();
+        if (mode==null || mode.length()==0) return;
+        else if (startsWith("all")) { suffix=""; numHash=1000; sleep=-100; }
+        else if (startsWith("burn")) { sleep=-1; }
+        else if (startsWith("cost")) { numHash=1000; }
+        else if (startsWith("delay")) { sleep=1; }
+        else if (startsWith("effort")) { sleep=10; }
+        else System.out.println("mode not found, using defaults: " + mode);
     }
 
     class Source implements Iterator<Stringx> {
