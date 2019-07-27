@@ -67,33 +67,48 @@ public class ShakespearePlaysScrabble {
     AtomicInteger outstanding = new AtomicInteger();
 
 
-    @Param("256")
-    public int size = 1<<8;
-
-    @Param("256")
-    public int soft = 1<<8;
-
     @Param("0")
-    public int sleep = 0;
+    public int size;
 
+    // limit the number of outstanding iterator objects using sleep
+    @Param("80")
+    public int soft = 80;
+
+    // values greater than zero mean the soft limit is active
+    @Param("0")
+    public int sleep;
+
+    // only the first letter is needed
     @Param("")
     public String mode;
 
+    // hard limit on the number of soft limit sleeps
     static int MAX_YIELD = 1000;
 
     boolean startsWith(String txt) { return mode.startsWith(txt.substring(0,1)); }
+
+    void getSoft() {
+        try { soft = Integer.parseInt(mode.substring(1)); }
+        catch (Exception ex) {}
+    }
+    void getLimit() {
+        try { sleep = -Integer.parseInt(mode.substring(1)); }
+        catch (Exception ex) {}
+    }
     
     @Setup
     public void init() {
     	scrabbleWords = Util.readScrabbleWords() ;
         words = Util.readShakespeareWords();
-        if (mode==null || mode.length()==0) return;
-        else if (startsWith("all")) { suffix=""; numHash=1000; sleep=-100; }
+        if (mode==null || mode.length()==0);
+        else if (startsWith("all")) { suffix=""; numHash=1000; sleep=-100; getLimit(); }
         else if (startsWith("burn")) { sleep=-1; }
         else if (startsWith("cost")) { numHash=1000; }
-        else if (startsWith("delay")) { sleep=1; }
-        else if (startsWith("effort")) { sleep=10; }
+        else if (startsWith("delay")) { sleep=1; getSoft(); }
+        else if (startsWith("effort")) { sleep=10; getSoft(); }
         else System.out.println("mode not found, using defaults: " + mode);
+        if (sleep <= 0)
+            soft = 0;
     }
 
     class Source implements Iterator<Stringx> {
