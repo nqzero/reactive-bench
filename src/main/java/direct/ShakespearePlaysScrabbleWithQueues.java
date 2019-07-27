@@ -345,6 +345,15 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         static {
             Scheduler.setDefaultScheduler(new ForkJoinScheduler(-1));
         }
+        static int put(Stringx value,int target,Worker [] actors) throws Pausable {
+            for (int ii=0; ii < actors.length; ii++)
+                if (actors[target = inc(target,actors.length)].box.putnb(value)) return target;
+            Task.yield();
+            for (int ii=0; ii < actors.length; ii++)
+                if (actors[target = inc(target,actors.length)].box.putnb(value)) return target;
+            actors[target = inc(target,actors.length)].box.put(value);
+            return target;
+        }
         public Object measureThroughput() throws InterruptedException {
             Worker [] actors = new Worker[numProc];
             for (int ii=0; ii < actors.length; ii++)
@@ -352,7 +361,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             Task.fork(() -> {
                 int target = 0;
                 for (Stringx word : shakespeareWords())
-                    actors[target = inc(target,actors.length)].box.put(word);
+                    target = put(word,target,actors);
                 for (Worker actor : actors)
                     actor.box.put(stop);
             }).joinb();
