@@ -120,7 +120,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     public static class JctoolsFair extends Base {
         SpmcArrayQueue<Stringx> queue;
         public Object measureThroughput() throws InterruptedException {
-            queue = new SpmcArrayQueue(size);
+            queue = new SpmcArrayQueue(size(1+numPool,1));
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
@@ -160,7 +160,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             return getList();
         }
         class Runner extends Thread {
-            SpscArrayQueue<Stringx> queue = new SpscArrayQueue(size);
+            SpscArrayQueue<Stringx> queue = new SpscArrayQueue(size(1+numPool,numPool));
             public void run() {
                 for (Stringx word; (word = queue.poll()) != stop;)
                     playWordMaybe(word);
@@ -169,8 +169,9 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static class Conversant extends Base {
-        private DisruptorBlockingQueue<Stringx> queue = new DisruptorBlockingQueue<>(size, SpinPolicy.WAITING);
+        private DisruptorBlockingQueue<Stringx> queue;
         public Object measureThroughput() throws InterruptedException {
+            queue = new DisruptorBlockingQueue<>(size(1+numPool,1), SpinPolicy.WAITING);
             Runner [] actors = new Runner[numPool];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Runner()).start();
@@ -181,6 +182,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
 
             for (Runner actor : actors)
                 actor.join();
+            queue = null;
             return getList();
         }
         class Runner extends Thread {
@@ -207,8 +209,10 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
             return getList();
         }
         class Runner extends Thread {
+            // fixme:optimize - in limited runs on an i5-3570, size 256 is 16% slower
+            //   should be revisited by a conversant expert
             private PushPullBlockingQueue<Stringx> queue =
-                    new PushPullBlockingQueue<>(size, SpinPolicy.WAITING);
+                    new PushPullBlockingQueue<>(Math.max(128,size(1+numPool,numPool)), SpinPolicy.WAITING);
             public void run() {
                 for (Stringx word; (word = queue.poll()) != stop;)
                     playWordMaybe(word);
@@ -278,7 +282,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
 
         class Worker extends Fiber<Void> {
-            Channel<Stringx> box = Channels.newChannel(size,OverflowPolicy.BACKOFF,true,true);
+            Channel<Stringx> box = Channels.newChannel(size(1+numProc,numProc),OverflowPolicy.BACKOFF,true,true);
 
             protected Void run() throws SuspendExecution,InterruptedException {
                 for (Stringx word; (word = box.receive()) != stop;)
@@ -291,7 +295,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     public static class QuasarFair extends Base {
         Channel<Stringx> box;
         public Object measureThroughput() throws InterruptedException {
-            box = Channels.newChannel(size,OverflowPolicy.BACKOFF,true,false);
+            box = Channels.newChannel(size(1+numProc,1),OverflowPolicy.BACKOFF,true,false);
             Worker [] actors = new Worker[numProc];
             for (int ii=0; ii < actors.length; ii++)
                 (actors[ii] = new Worker()).start();
@@ -322,10 +326,15 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     int size(int delta,int num) {
+        // fixme:optimize - could make per-bench specific though doesn't appear to be much sensitivity
+        // upper limit of 256 was near-optimal for all benches except Push on an i5-3570
+        int upper = 256;
         if (size != 0)
             return size;
+        if (soft==0)
+            return upper;
         int max = Math.max((soft - delta)/num,1);
-        return Integer.highestOneBit(max);
+        return Math.min(Integer.highestOneBit(max),upper);
     }
 
     static int inc(int target,int length) {
@@ -354,7 +363,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         }
 
         class Worker extends Task<Void> {
-            MailboxSPSC<Stringx> box = new MailboxSPSC(sleep==0 ? 256:size(1+numProc,numProc));
+            MailboxSPSC<Stringx> box = new MailboxSPSC(size(1+numProc,numProc));
 
             public void execute() throws Pausable {
                 for (Stringx word; (word = box.get()) != stop;)
