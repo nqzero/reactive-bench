@@ -246,9 +246,8 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
     public static class Stream8 extends Base {
         public Object measureThroughput() {
-            // force the words to be processed linearly
-            //   ie, to simulate backpressure
-            // fixme - are any characteristics useful here ?
+            // official oracle position is that streams aren't really appropriate for unsized iterators, eg:
+            // https://stackoverflow.com/questions/17960656/is-it-possible-to-use-java-8-streams-api-for-asynchronous-processing#comment36545451_18826615
             Stream<Stringx> unsplittable =
                 StreamSupport.stream(
                         Spliterators.spliteratorUnknownSize(
