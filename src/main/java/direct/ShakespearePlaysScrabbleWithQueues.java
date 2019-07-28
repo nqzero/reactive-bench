@@ -31,7 +31,9 @@ import java.security.MessageDigest;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -255,6 +257,31 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
                                 Spliterator.NONNULL | Spliterator.IMMUTABLE
                         ),true);
             unsplittable.forEach(word -> playWord(word));
+            return getList();
+        }
+    }
+
+    public static class ForkJoin extends Base {
+        public Object measureThroughput() throws InterruptedException {
+            ForkJoinPool pool = new ForkJoinPool(numProc);
+            // the FJP pool is fixed and large, so handle the soft limit locally
+            AtomicInteger out = new AtomicInteger();
+            int limit = soft==0 ? 1024:soft;
+            int shift = 4;
+            for (Stringx word : shakespeareWords()) {
+                if (out.incrementAndGet() >= limit) {
+                    Thread.sleep(0);
+                    for (int timeout=0;
+                            out.get() >= limit && pool.awaitQuiescence(timeout >> shift,TimeUnit.MILLISECONDS);
+                            timeout++);
+                }
+                pool.submit(() -> {
+                    playWord(word);
+                    out.decrementAndGet();
+                });
+            }
+            pool.shutdown();
+            pool.awaitQuiescence(Long.MAX_VALUE,TimeUnit.NANOSECONDS);
             return getList();
         }
     }
@@ -567,6 +594,7 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
 
     public static void main(String[] args) throws Exception {
+        new ForkJoin().doMain();
         new RxJava().doMain();
         new Jctools().doMain();
         new JctoolsFair().doMain();
