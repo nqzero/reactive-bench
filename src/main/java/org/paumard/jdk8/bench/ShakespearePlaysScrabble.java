@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 José Paumard
+ * Modifications Copyright (C) 2019 nqzero
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,9 +35,11 @@ public class ShakespearePlaysScrabble {
     public static boolean fast;
 
 
+    /** for words matching the suffix, hash the word and modify the score */
     @Param("ks")
-    public String suffix;
+    public String suffix = "ks";
 
+    /** the number of times to hash each word matching the suffix */
     @Param("0")
     public int numHash;
     
@@ -46,6 +49,19 @@ public class ShakespearePlaysScrabble {
         fast = System.getProperty("fast") != null;
     }
 
+    protected void getProperties() {
+        suffix = System.getProperty("suffix");
+        try { numHash = Integer.parseInt(System.getProperty("numHash")); }
+        catch (Exception ex) {}
+        try { size = Integer.parseInt(System.getProperty("size")); }
+        catch (Exception ex) {}
+        try { soft = Integer.parseInt(System.getProperty("soft")); }
+        catch (Exception ex) {}
+        try { sleep = Integer.parseInt(System.getProperty("sleep")); }
+        catch (Exception ex) {}
+        mode = System.getProperty("mode");
+    }
+    
     static public int numPool = Math.max(1,numProc-1);
     
     public static final int [] letterScores = {
@@ -67,19 +83,37 @@ public class ShakespearePlaysScrabble {
     AtomicInteger outstanding = new AtomicInteger();
 
 
+    /**
+     * most implementations support a queue size.
+     * if this value is non-zero, it is used.
+     * otherwise, the size is computed based on the soft limit.
+     */
     @Param("0")
     public int size;
 
-    // limit the number of outstanding iterator objects using sleep
-    @Param("80")
-    public int soft = 80;
+    /**
+     * the soft limit on the number of outstanding iterator objects.
+     * only active for positive sleep values
+     */
+    @Param("32")
+    public int soft = 32;
 
-    // values greater than zero mean the soft limit is active
+    /** 
+     * for positive values, the number of times to sleep before exceeding the soft limit.
+     * if less than -1, only iterate through the first -sleep values.
+     * if -1, burn the cpu using an additional task and only use the first 100 values.
+     */
     @Param("0")
     public int sleep;
 
-    // only the first letter is needed
-    @Param("")
+    /**
+     * modes allow setting multiple params as a group.
+     * only the first letter is needed.
+     * supported values are: fast, all, burn, cost, delay, effort.
+     * some single letter modes can embed other param values.
+     * ie "a200" does 200 iterations and d80 or e80 uses a soft limit of 80.
+     */
+    @Param({"fast", "all", "burn", "cost", "delay"})
     public String mode;
 
     // hard limit on the number of soft limit sleeps
@@ -101,7 +135,8 @@ public class ShakespearePlaysScrabble {
     	scrabbleWords = Util.readScrabbleWords() ;
         words = Util.readShakespeareWords();
         if (mode==null || mode.length()==0);
-        else if (startsWith("all")) { suffix=""; numHash=1000; sleep=-100; getLimit(); }
+        else if (startsWith("fast")) {}
+        else if (startsWith("all")) { suffix=""; numHash=numHash==0 ? 1000:numHash; sleep=-100; getLimit(); }
         else if (startsWith("burn")) { sleep=-1; }
         else if (startsWith("cost")) { numHash=1000; }
         else if (startsWith("delay")) { sleep=1; getSoft(); }

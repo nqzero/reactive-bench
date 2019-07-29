@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2019 Jose Paumard, nqzero
+ * Copyright (C) 2019 Jose Paumard
+ * Modifications Copyright (C) 2019 nqzero
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,8 +105,9 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
     }
     public static abstract class Base extends ShakespearePlaysScrabbleWithQueues implements Jmh {
         void doMain() throws Exception {
+            getProperties();
             init();
-            System.out.format("%8s: %s\n",getClass().getSimpleName(),bench());
+            System.out.format("%20s: %s\n",getClass().getSimpleName(),bench());
         }
         @Benchmark
         public Object bench() throws InterruptedException {
@@ -603,8 +605,9 @@ public abstract class ShakespearePlaysScrabbleWithQueues extends ShakespearePlay
         new Kilim().doMain();
         new Movie().doMain();
         new Direct().doMain();
-        new Stream8().doMain();
         new Quasar().doMain();
+        new QuasarFair().doMain();
+        new Stream8().doMain();
     }
 
     static class MutableLong {
