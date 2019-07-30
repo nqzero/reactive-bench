@@ -1,18 +1,56 @@
-# Shakespeare plays Reactive Scrabble with Queues
+# Shakespeare plays Reactive Scrabble with Java Queues
 
-JMH benchmark of several queue libraries and their ability to coordinate threads,
+This JMH benchmark attempts to measure how quickly an actor or queue library
+can distribute and process tasks on multi-core machines,
 for several common use-cases (`-p mode=`):
 
- * throughput (fast): many small tasks, no latency, no back pressure
  * heavy lifting (all): a few (eg, 100-200) larger tasks, no latency, no back pressure
  * waiting (burn): efficiency of a few small tasks with latency, no back pressure
  * mixed load (cost): many small tasks and a few large ones interspersed, no latency, no back pressure
  * back pressure (delay, effort): many small tasks, with back pressure which may induce latency
+ * throughput (fast): many small tasks, no latency, no back pressure
 
-## Results
+Collectively, the use-cases attempt to represent the degree to which an implementation is reactive
+to it's environment.
+
+Based on Jose Paumard's kata from Devoxx 2015 and David Karnok's (RxJava) refinements,
+the tasks find the most valuable word
+from a set of words taken from one of Shakespeare's works based on the  point schema of Scrabble.
+Larger tasks are modeled by sha-256 hashing many variations of a word, adding to the word's score.
+The candidate words are provided by several iterators exercising the different use-cases.
 
 
+#### Results
 
+<img src="https://github.com/nqzero/reactive-bench/blob/jmh.data/doc/bench.jpg?raw=true">
+<img src="https://github.com/nqzero/reactive-bench/blob/jmh.data/doc/details.jpg?raw=true">
+
+Kilim performs best overall, best for mixed load, and is the most versatile:
+it's worst use-case score is 64%, vs 51% for the next-best worst-case.
+However, Kilim lacks multi-consumer messaging, so it could degrade to a single thread
+under unusual conditions.
+(multi-consumer messaging is under development and was one of the motivations for this benchmark study)
+
+JcTools is the best-performing queue for the back pressure use-case,
+though none of the implementations handle this use-case gracefully on all machine types.
+This is an area of ongoing investigation.
+
+Quasar is the clear winner for heavy lifting, benefitting from both efficient context switching (like Kilim)
+and a multi-consumer `Channel`
+
+Java 8 Streams lack the concept of back pressure and effectively read the entire event stream into an array
+before processing it in parallel chunks, which unsurprisingly results in the highest throughput.
+Kilim is the fastest of the queue implementations, benefitting from fast context switching and
+the use of multiple queues.
+
+Conversant is the most consistent performer across the use-cases.
+The difference between the use-case mean and the worst use-case is only 15%,
+vs 22-62% for the other implementations.
+
+RxJava forces you to chose between parallel processing (which is used here) and handling back pressure,
+which appears to make it inappropriate unless you know that you won't be processing
+cpu intensive tasks.
+Hopefully the RxJava team will remove this limitation in the future.
 
 
 #### Reactive to What ?
@@ -20,19 +58,23 @@ for several common use-cases (`-p mode=`):
  * task size: small, large, mixed
  * back pressure: eg, because tasks use a lot of memory
  * latency: eg, tasks coming from the network
- * efficiency under low load: waiting for tasks shouldn't burn the cpu.
-This is measured by timing a cpu-intensive task running in the background.
+ * efficiency under low load: waiting for tasks shouldn't burn the cpu,
+simulated by timing a cpu-intensive task running in the background
 
 
-#### Queues
+#### The Queues and Implementations
 
+Queues:
 * [Conversant Disruptor](https://github.com/conversant/disruptor): a fast blocking queue
-* Java 8 streams
-* the Java ForkJoinPool
 * [JcTools](https://github.com/JCTools/JCTools): psy-lob-saw's concurrent data structures
 * [Kilim](https://github.com/kilim/kilim): fibers, continuations and message passing for java
 * [Quasar](https://github.com/puniverse/quasar): fibers and message passing for java and kotlin
 * [RxJava](https://github.com/ReactiveX/RxJava): reactive extensions for the JVM
+* [the Java ForkJoinPool](https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ForkJoinPool.html)
+
+Imperative:
+* A single threaded for-each loop
+* [Java 8 streams](https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html)
 
 Caveat Emptor - the author is a Kilim user and maintainer.
 
@@ -83,7 +125,7 @@ it helps to throttle the cpu to a speed that is sustainable.
 eg, on linux:
 
 ```
-sudo cpupower frequency-set -u 2.8ghz
+sudo cpupower frequency-set -u 2.5ghz
 ```
 
 
@@ -121,10 +163,35 @@ To run all the implementations without JMH and view the results:
 java $quasar -cp target/classes:$cp direct.ShakespearePlaysScrabbleWithQueues
 ```
 
-any of the JMH `Params` can be set by setting the same system property,
+any of the JMH `Params` can be set by setting the same system property of the same name,
 eg `-Dmode=cost` is equivalent to `-p mode=cost`.
 `Stream8` typically fails the hard-limit for scenarios with back pressure,
 which results in an immediate (intentional) exit.
+
+
+#### Methodology
+
+These results are aggragates based on runs on several machines
+* all using ubuntu 18.04 LTS
+* aws runs use ubuntu's 11.0.4+11-1ubuntu2~18.04.3 jdk (openjdk-11-jdk-headless:amd64)
+* on-prem runs use openjdk 12+33 jdk (installed from tarball)
+* a small performance-preserving semi-random sampling of the jmh runs is
+[stored in the `jmh.data` branch](https://github.com/nqzero/reactive-bench/blob/jmh.data/saved) that closely approximates these charts (within 1-3%)
+* per-use-case (ie mode) performance is normalized by the fastest of the benchmarks for that use-case
+* composite performance is the mean of the per-use-case performances
+* finally, the results are the mean of the corresponding values for each of the machine types
+* the (minimal) tuning was done based on the on-prem results only
+* [./modes.m](modes.m) is an octave file for processing jmh csv files, eg to load and plot the saved data:
+```
+  git checkout jmh.data -- saved
+  vs = printBench()` 
+```
+
+machine types:
+* on-prem, i5-3570, 4 cores @ 2.5GHz throttle, 16G, 1600 runs
+* aws, c5.large, 4 vcpu, 8G, 1920 runs
+* aws, c5.2xlarge, 8vcpu, 16G, 3456 runs
+
 
 
 
@@ -139,7 +206,8 @@ Apache 2.0 License
 This project is based on a merged fork of two projects
 
 * [Jose Paumard's kata from Devoxx 2015](https://github.com/JosePaumard/jdk8-stream-rx-comparison-reloaded)
-* [David Karnok's (RxJava) direct implementation](https://github.com/akarnokd/akarnokd-misc/blob/master/src/jmh)
+* [David Karnok's (RxJava) direct implementation]
+(https://github.com/akarnokd/akarnokd-misc/blob/master/src/jmh/java/hu/akarnokd/comparison/scrabble/ShakespearePlaysScrabbleWithDirect.java)
 
 This project adds several multi-threaded implementations using different queues
 for communicating between the threads and additional iterators for testing different scenarios.
@@ -156,7 +224,17 @@ Also interested in results from other environments.
 Some cleanup is warranted before adding a new use case, so creating an issue
 first would be beneficial.
 
+An Akka implementation would be especially welcomed.
 
 #### Todo
 
 * clean up the scenario selection / configuration code
+* (in-progress) add a multiple-consumer mailbox to kilim
+  (part of the motivation for this benchmark was to understand the limitations of kilim)
+* the "Fair" implementations have better worst-case performance, eg to a DOS
+  - would like to capture that more explicitly in one of the modes
+* tuning, tuning, tuning
+* understand the inconsistent back-pressure performance
+* add a single-threaded RxJava implementation with back pressure
+* base results on worst case timing, as opposed to median timing
+
